@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lubover.singularity.stock.mapper.StockChangeLogMapper">
+
+    <resultMap id="stockChangeLogMap" type="com.lubover.singularity.stock.entity.StockChangeLog">
+        <id column="id" property="id"/>
+        <result column="message_id" property="messageId"/>
+        <result column="product_id" property="productId"/>
+        <result column="change_quantity" property="changeQuantity"/>
+        <result column="change_type" property="changeType"/>
+        <result column="order_id" property="orderId"/>
+        <result column="status" property="status"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectByMessageId" parameterType="string" resultMap="stockChangeLogMap">
+        SELECT id, message_id, product_id, change_quantity, change_type, order_id, status, remark, create_time, update_time
+        FROM stock_change_log
+        WHERE message_id = #{messageId}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" parameterType="com.lubover.singularity.stock.entity.StockChangeLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO stock_change_log (message_id, product_id, change_quantity, change_type, order_id, status, create_time, update_time)
+        VALUES (#{messageId}, #{productId}, #{changeQuantity}, #{changeType}, #{orderId}, #{status}, NOW(), NOW())
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE stock_change_log
+        SET status = #{status}, remark = #{remark}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+
+</mapper>

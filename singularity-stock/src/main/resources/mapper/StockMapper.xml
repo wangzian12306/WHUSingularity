@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lubover.singularity.stock.mapper.StockMapper">
+
+    <resultMap id="stockMap" type="com.lubover.singularity.stock.entity.Stock">
+        <id column="id" property="id"/>
+        <result column="product_id" property="productId"/>
+        <result column="available_quantity" property="availableQuantity"/>
+        <result column="reserved_quantity" property="reservedQuantity"/>
+        <result column="total_quantity" property="totalQuantity"/>
+        <result column="version" property="version"/>
+        <result column="create_time" property="createTime"/>
+        <result column="update_time" property="updateTime"/>
+    </resultMap>
+
+    <select id="selectByProductId" parameterType="string" resultMap="stockMap">
+        SELECT id, product_id, available_quantity, reserved_quantity, total_quantity, version, create_time, update_time
+        FROM stock
+        WHERE product_id = #{productId}
+    </select>
+
+    <insert id="insert" parameterType="com.lubover.singularity.stock.entity.Stock" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO stock (product_id, available_quantity, reserved_quantity, total_quantity, version, create_time, update_time)
+        VALUES (#{productId}, #{availableQuantity}, #{reservedQuantity}, #{totalQuantity}, #{version}, NOW(), NOW())
+    </insert>
+
+    <update id="updateAvailableQuantity">
+        UPDATE stock
+        SET available_quantity = available_quantity - #{changeQuantity},
+            version = version + 1,
+            update_time = NOW()
+        WHERE product_id = #{productId} AND version = #{version}
+    </update>
+
+    <update id="increaseReservedQuantity">
+        UPDATE stock
+        SET reserved_quantity = reserved_quantity + #{quantity},
+            update_time = NOW()
+        WHERE product_id = #{productId}
+    </update>
+
+    <update id="decreaseReservedQuantity">
+        UPDATE stock
+        SET reserved_quantity = reserved_quantity - #{quantity},
+            update_time = NOW()
+        WHERE product_id = #{productId}
+    </update>
+
+    <update id="returnStockQuantity">
+        UPDATE stock
+        SET reserved_quantity = reserved_quantity - #{quantity},
+            available_quantity = available_quantity + #{quantity},
+            version = version + 1,
+            update_time = NOW()
+        WHERE product_id = #{productId} AND reserved_quantity >= #{quantity}
+    </update>
+
+</mapper>
