@@ -41,6 +41,7 @@ public class DefaultAllocator implements Allocator {
         context.next();
 
         Result result = context.getResult();
+
         return result != null ? result : new Result(false, "no result produced by handler chain");
     }
 }

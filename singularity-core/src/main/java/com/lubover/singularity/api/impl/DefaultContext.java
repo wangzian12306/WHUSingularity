@@ -8,10 +8,10 @@ import java.util.Map;
 
 public class DefaultContext implements Context {
 
+    private Result result;
     private final Map<String, Object> values = new HashMap<>();
     private final Actor actor;
     private final Slot slot;
-    private Result result;
     private final List<Interceptor> chain;
     private int index = -1;
 
@@ -19,6 +19,9 @@ public class DefaultContext implements Context {
         this.actor = actor;
         this.slot = slot;
         this.chain = chain;
+        
+        // 设置一个默认的 result
+        this.result = new Result(false, "no result produced by handler chain");
     }
 
     @Override

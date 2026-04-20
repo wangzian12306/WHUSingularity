@@ -4,20 +4,10 @@ server:
 spring:
   application:
     name: singularity-order
-  datasource:
-    url: jdbc:mysql://localhost:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
       host: localhost
       port: 6379
-
-mybatis:
-  mapper-locations: classpath:mapper/*.xml
-  configuration:
-    map-underscore-to-camel-case: true
 
 rocketmq:
   name-server: localhost:9876
@@ -30,3 +20,13 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
+
+# Slot（Redis 库存桶）配置，由 Config Server 下发
+# 每个 slot 对应一个 Redis 库存 key，id 用于分槽路由
+singularity:
+  order:
+    slots:
+      - id: bucket-1
+        redis-key: stock:bucket-1
+      - id: bucket-2
+        redis-key: stock:bucket-2
