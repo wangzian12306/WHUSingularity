@@ -84,7 +84,38 @@ ws.onmessage = (event) => {
 - 代码风格：ESLint + Prettier
 - 接口类型：按后端 API 契约手动维护 TypeScript 类型
 
-## 4. 测试
+## 4. 设计规范
+
+### 4.1 色彩体系
+
+基于武汉大学校园色彩，通过 Ant Design 的 `ConfigProvider` `theme.token` 统一注入。
+
+| 角色 | 名称 | 色值 | 用途 |
+|---|---|---|---|
+| **主色 Primary** | 珞珈蓝 | `#002554` | 按钮、链接、选中态、品牌标识 |
+| **主色辅助** | 珞珈绿 | `#115740` | 成功状态、次要强调、辅助品牌 |
+| 辅助 | 珞樱粉 | `#f8a3bc` | 提示、轻量装饰 |
+| 辅助 | 东湖蓝 | `#41b6e6` | 信息提示、图标点缀 |
+| 辅助 | 秋桂黄 | `#ffa300` | 警告、倒计时高亮 |
+| 辅助 | 春藤紫 | `#33058d` | 特殊标记 |
+| 辅助 | 黉瓦绿 | `#00797c` | 辅助成功色、徽章 |
+| 辅助 | 霜叶红 | `#e10800` | 错误、危险操作 |
+| 中性 | 晨雾灰 | `#c1c6c8` | 边框、分割线、禁用态 |
+
+```tsx
+// ConfigProvider theme 配置示例
+const theme = {
+  token: {
+    colorPrimary: '#002554',
+    colorSuccess: '#115740',
+    colorError: '#e10800',
+    colorWarning: '#ffa300',
+    colorInfo: '#41b6e6',
+  },
+}
+```
+
+## 5. 测试
 
 | 类别 | 选型 | 说明 |
 |---|---|---|
@@ -92,7 +123,7 @@ ws.onmessage = (event) => {
 | 组件测试 | React Testing Library | 测试用户行为而非实现细节 |
 | E2E 测试 | Playwright | 抢单并发场景需端到端验证 |
 
-### 4.1 单元测试 + 组件测试
+### 5.1 单元测试 + 组件测试
 
 覆盖重点：
 - 登录/注册表单校验逻辑
@@ -100,7 +131,7 @@ ws.onmessage = (event) => {
 - 请求拦截器（token 注入、401 跳转）
 - 抢单按钮的防重复提交、倒计时禁用
 
-### 4.2 E2E 测试
+### 5.2 E2E 测试
 
 覆盖场景：
 - 注册 → 登录 → 抢单 → 退出 完整链路
@@ -109,22 +140,22 @@ ws.onmessage = (event) => {
 
 > 测试在基础页面稳定后再补充，不阻塞首次开发。
 
-## 5. 全局机制
+## 6. 全局机制
 
 - **Token 管理**：登录后将 `accessToken` 和 `expiresIn` 存入 localStorage
 - **请求拦截**：axios request interceptor 自动附加 `Authorization: Bearer <token>`
 - **401 处理**：axios response interceptor 捕获 401，清除 token 并跳转 `/login`
 - **路由守卫**：受保护路由检查 localStorage 中的 token，无 token 则重定向 `/login`
 
-## 6. WebMCP（增强能力）
+## 7. WebMCP（增强能力）
 
-### 6.1 什么是 WebMCP
+### 7.1 什么是 WebMCP
 
 WebMCP 是 W3C Web Machine Learning Community Group 提出的浏览器标准草案（2025.08 首次发布）。核心 API `navigator.modelContext.registerTool()` 允许网页暴露结构化的 JavaScript "tools"（带自然语言描述和 schema），供浏览器内 AI Agent 直接调用，而非通过模拟点击/滚动操作页面。
 
 Chrome 146+ 已开启 Early Preview（需手动启用 flag）。
 
-### 6.2 与本项目的关系
+### 7.2 与本项目的关系
 
 WebMCP 是**增量能力，不影响基础架构选型**。原因：
 
@@ -132,7 +163,7 @@ WebMCP 是**增量能力，不影响基础架构选型**。原因：
 - 常规页面交互（登录、抢单、用户中心）的人用 UI 不变
 - Agent 调用的 tool 与用户点击按钮走的是同一套前端业务逻辑
 
-### 6.3 落地计划
+### 7.3 落地计划
 
 1. 基础页面跑通后再接入 WebMCP
 2. 引入 `@mcp-b/webmcp-polyfill` 兼容非 Chrome 146 浏览器
@@ -152,7 +183,7 @@ navigator.modelContext.registerTool({
 });
 ```
 
-### 6.4 参考资料
+### 7.4 参考资料
 
 - [WebMCP Spec (W3C)](https://webmachinelearning.github.io/webmcp)
 - [Awesome WebMCP](https://github.com/webfuse-com/awesome-webmcp)
