@@ -11,7 +11,17 @@ function Placeholder() {
 
 export default function App() {
   return (
-    <ConfigProvider>
+    <ConfigProvider theme={{
+      token: {
+        colorPrimary: '#002554',
+        colorSuccess: '#115740',
+        colorError: '#e10800',
+        colorWarning: '#ffa300',
+        colorInfo: '#41b6e6',
+        colorBorder: '#c1c6c8',
+        colorTextDisabled: '#c1c6c8',
+      },
+    }}>
       <BrowserRouter>
         <AuthProvider>
           <Routes>
