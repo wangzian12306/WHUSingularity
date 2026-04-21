@@ -58,6 +58,10 @@ singularity-stock/   — 库存服务：库存管理，MQ 驱动，Flyway 迁移
 
 统一 JSON 响应格式 `success/data/error`，错误码体系（如 `AUTH_TOKEN_INVALID`、`USER_USERNAME_EXISTS`）。公共端点：register、login；其余需 `Authorization: Bearer <JWT>`。
 
+## Workflow
+
+- **直接在 main 分支上开发**，不创建 feature 分支。团队通过 PR 协作，main 上开发即可。
+
 ## Documentation
 
 `docs/` 目录包含各服务的设计文档、API 契约、场景验收和进度记录，是理解业务细节的主要参考。
