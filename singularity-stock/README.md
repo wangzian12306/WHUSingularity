@@ -113,6 +113,38 @@ StockChangeLog log = stockService.getChangeLog("MSG_UUID_001");
 System.out.println("处理状态: " + log.getStatus()); // 0=待处理, 1=已处理, 2=失败
 ```
 
+### 6. 预热 Redis slot（新增接口）
+
+接口路径：`POST /api/stock/slots/preheat`
+
+请求体：
+```json
+{
+   "slotId": "A",
+   "redisKey": "stock:bucket-1",
+   "quantity": 1000,
+   "overwrite": false
+}
+```
+
+参数说明：
+- `slotId`: slot标识
+- `redisKey`: 可选，显式指定要预热的 Redis key。未提供时，服务将优先按配置 `singularity.order.slots` 解析对应 key；若仍未命中则回退到 `stock:{slotId}`
+- `quantity`: 预热库存，必须大于 0
+- `overwrite`: 
+   - `true` 覆盖已有值
+   - `false` 仅在 key 不存在时写入
+
+返回示例：
+```json
+{
+   "redisKey": "stock:A",
+   "written": true,
+   "currentValue": "1000",
+   "message": "slot预热成功"
+}
+```
+
 ## 配置说明
 
 ### application.yml 关键配置
