@@ -61,9 +61,9 @@ services:
       - "10911:10911"
       - "10909:10909"
 
-  singularity-user:
+  singularity-user-1:
     image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-user
+    container_name: singularity-user-1
     restart: unless-stopped
     working_dir: /workspace
     command: sh -c "mvn -pl singularity-user -am -DskipTests package && java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
@@ -75,6 +75,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       JWT_SECRET: dev-secret-key
+      # 与单实例(8090) 及 user-2(8091) 错开，避免宿主机端口冲突
+      SERVER_PORT: "8092"
     volumes:
       - ../:/workspace
       - maven_repo:/root/.m2
@@ -83,11 +85,36 @@ services:
       - redis
       - nacos
     ports:
-      - "8090:8090"
+      - "8092:8092"
 
-  singularity-stock:
+  singularity-user-2:
     image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-stock
+    container_name: singularity-user-2
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "mvn -pl singularity-user -am -DskipTests package && java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_user?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      JWT_SECRET: dev-secret-key
+      SERVER_PORT: "8091"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+    ports:
+      - "8091:8091"
+
+  singularity-stock-1:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-stock-1
     restart: unless-stopped
     working_dir: /workspace
     command: sh -c "mvn -pl singularity-stock -am -DskipTests package && java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
@@ -100,6 +127,8 @@ services:
       SPRING_DATA_REDIS_PORT: "6379"
       ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
       ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
+      # 与单实例(8082) 及 stock-2(8084) 错开
+      SERVER_PORT: "8086"
     volumes:
       - ../:/workspace
       - maven_repo:/root/.m2
@@ -109,11 +138,38 @@ services:
       - nacos
       - rmq-broker
     ports:
-      - "8082:8082"
+      - "8086:8086"
 
-  singularity-order:
+  singularity-stock-2:
     image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-order
+    container_name: singularity-stock-2
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "mvn -pl singularity-stock -am -DskipTests package && java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_stock?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
+      SERVER_PORT: "8084"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rmq-broker
+    ports:
+      - "8084:8084"
+
+  singularity-order-1:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-order-1
     restart: unless-stopped
     working_dir: /workspace
     command: sh -c "mvn -pl singularity-order -am -DskipTests package && java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
@@ -128,6 +184,8 @@ services:
       ROCKETMQ_PRODUCER_GROUP: order-producer-group
       ROCKETMQ_CONSUMER_GROUP: order-consumer-group
       SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1"},{"id":"bucket-2","redis-key":"stock:bucket-2"}]}}}'
+      # 与单实例(8081) 及 order-2(8083) 错开
+      SERVER_PORT: "8085"
     volumes:
       - ../:/workspace
       - maven_repo:/root/.m2
@@ -137,7 +195,36 @@ services:
       - nacos
       - rmq-broker
     ports:
-      - "8081:8081"
+      - "8085:8085"
+
+  singularity-order-2:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-order-2
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "mvn -pl singularity-order -am -DskipTests package && java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_PRODUCER_GROUP: order-producer-group
+      ROCKETMQ_CONSUMER_GROUP: order-consumer-group
+      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1"},{"id":"bucket-2","redis-key":"stock:bucket-2"}]}}}'
+      SERVER_PORT: "8083"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rmq-broker
+    ports:
+      - "8083:8083"
 
 volumes:
   mysql_data:

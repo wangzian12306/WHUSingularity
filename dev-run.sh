@@ -112,7 +112,10 @@ publish_nacos_config "singularity-user.yaml" "${USER_CONFIG}"
 publish_nacos_config "singularity-stock.yaml" "${STOCK_CONFIG}"
 
 echo "[STEP 4/4] 启动后端服务实例 (user/order/stock 各 1 个)..."
-docker compose -f "${COMPOSE_FILE}" up -d --force-recreate singularity-user singularity-stock singularity-order
+docker compose -f "${COMPOSE_FILE}" up -d --force-recreate \
+  singularity-user-1 singularity-user-2 \
+  singularity-order-1 singularity-order-2 \
+  singularity-stock-1 singularity-stock-2
 
 echo "[DONE] 后端开发环境已拉起"
 echo "查看状态: docker compose -f deploy/docker-compose.backend.yml ps"
