@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.lubover.singularity.stock.mapper.StockChangeLogMapper">
 
@@ -33,5 +33,19 @@
         SET status = #{status}, remark = #{remark}, update_time = NOW()
         WHERE id = #{id}
     </update>
+
+    <select id="selectList" resultMap="stockChangeLogMap">
+        SELECT id, message_id, product_id, change_quantity, change_type, order_id, status, remark, create_time, update_time
+        FROM stock_change_log
+        <where>
+            <if test="productId != null and productId != ''">
+                product_id = #{productId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
 
 </mapper>

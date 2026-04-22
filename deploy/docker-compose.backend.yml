@@ -61,12 +61,37 @@ services:
       - "10911:10911"
       - "10909:10909"
 
+  singularity-user-0:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-user-0
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_user?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      JWT_SECRET: dev-secret-key
+      SERVER_PORT: "8090"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+    ports:
+      - "8090:8090"
+
   singularity-user-1:
     image: maven:3.9.9-eclipse-temurin-21
     container_name: singularity-user-1
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "mvn -pl singularity-user -am -DskipTests package && java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
+    command: sh -c "java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_user?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -92,7 +117,7 @@ services:
     container_name: singularity-user-2
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "mvn -pl singularity-user -am -DskipTests package && java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
+    command: sh -c "java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_user?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -112,12 +137,39 @@ services:
     ports:
       - "8091:8091"
 
+  singularity-stock-0:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-stock-0
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_stock?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
+      SERVER_PORT: "8082"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rmq-broker
+    ports:
+      - "8082:8082"
+
   singularity-stock-1:
     image: maven:3.9.9-eclipse-temurin-21
     container_name: singularity-stock-1
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "mvn -pl singularity-stock -am -DskipTests package && java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
+    command: sh -c "java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_stock?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -145,7 +197,7 @@ services:
     container_name: singularity-stock-2
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "mvn -pl singularity-stock -am -DskipTests package && java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
+    command: sh -c "java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_stock?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -167,12 +219,41 @@ services:
     ports:
       - "8084:8084"
 
+  singularity-order-0:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-order-0
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_PRODUCER_GROUP: order-producer-group
+      ROCKETMQ_CONSUMER_GROUP: order-consumer-group
+      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1"},{"id":"bucket-2","redis-key":"stock:bucket-2"}]}}}'
+      SERVER_PORT: "8081"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rmq-broker
+    ports:
+      - "8081:8081"
+
   singularity-order-1:
     image: maven:3.9.9-eclipse-temurin-21
     container_name: singularity-order-1
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "mvn -pl singularity-order -am -DskipTests package && java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
+    command: sh -c "java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -202,7 +283,7 @@ services:
     container_name: singularity-order-2
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "mvn -pl singularity-order -am -DskipTests package && java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
+    command: sh -c "java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true

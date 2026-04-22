@@ -4,6 +4,8 @@ import com.lubover.singularity.stock.entity.Stock;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 库存Mapper
  */
@@ -45,4 +47,9 @@ public interface StockMapper {
      */
     int returnStockQuantity(@Param("productId") String productId,
                             @Param("quantity") Long quantity);
+
+    /**
+     * 查询全部库存记录
+     */
+    List<Stock> selectAll();
 }

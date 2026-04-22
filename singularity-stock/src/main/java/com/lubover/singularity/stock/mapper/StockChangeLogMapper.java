@@ -4,6 +4,8 @@ import com.lubover.singularity.stock.entity.StockChangeLog;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 库存变更日志Mapper
  */
@@ -24,4 +26,9 @@ public interface StockChangeLogMapper {
      * 更新库存变更日志状态
      */
     int updateStatus(@Param("id") Long id, @Param("status") Integer status, @Param("remark") String remark);
+
+    /**
+     * 按条件查询库存变更日志
+     */
+    List<StockChangeLog> selectList(@Param("productId") String productId, @Param("status") Integer status);
 }
