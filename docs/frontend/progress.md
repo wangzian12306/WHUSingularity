@@ -1,6 +1,8 @@
 # 前端开发进度
 
-> 更新日期：2026-04-21（Phase 1 完成）
+> 更新日期：2026-04-22（Phase 2/3 任务卡已制定）
+>
+> 详细任务卡见 [`0422-phase2-phase3-task-cards.md`](0422-phase2-phase3-task-cards.md)
 
 ## 1. 当前进展
 

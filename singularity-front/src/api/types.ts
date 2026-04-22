@@ -87,15 +87,14 @@ export interface SnagOrderRequest {
 
 export interface SnagOrderResponse {
   orderId: string
-  slotId: string
-  status: number
+  status: string
 }
 
 export interface Order {
   orderId: string
-  actorId: string
+  userId: string
   slotId: string
-  status: number
+  status: string
   createTime: string
 }
 
