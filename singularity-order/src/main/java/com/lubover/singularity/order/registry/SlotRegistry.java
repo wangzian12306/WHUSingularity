@@ -40,7 +40,7 @@ public class SlotRegistry implements Registry {
 
     public SlotRegistry(SlotProperties props) {
         this.slotList = props.getSlots().stream()
-                .map(c -> new StockSlot(c.getId(), c.getRedisKey()))
+                .map(c -> new StockSlot(c.getId(), c.getRedisKey(), c.getProductId()))
                 .collect(Collectors.toList());
 
         log.info("SlotRegistry initialized with {} slots: {}",
@@ -76,5 +76,13 @@ public class SlotRegistry implements Registry {
                 .map(StockSlot::getRedisStockKey)
                 .findFirst()
                 .orElse("stock:" + slotId);
+    }
+
+    public String getProductId(String slotId) {
+        return slotList.stream()
+                .filter(s -> s.getId().equals(slotId))
+                .map(StockSlot::getProductId)
+                .findFirst()
+                .orElse(null);
     }
 }

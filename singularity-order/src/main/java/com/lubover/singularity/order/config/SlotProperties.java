@@ -27,6 +27,8 @@ public class SlotProperties {
         private String id;
         /** 对应的 Redis key，例如 stock:bucket-1 */
         private String redisKey;
+        /** slot 对应商品 ID */
+        private String productId;
 
         public String getId() {
             return id;
@@ -42,6 +44,14 @@ public class SlotProperties {
 
         public void setRedisKey(String redisKey) {
             this.redisKey = redisKey;
+        }
+
+        public String getProductId() {
+            return productId;
+        }
+
+        public void setProductId(String productId) {
+            this.productId = productId;
         }
     }
 }

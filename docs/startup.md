@@ -123,11 +123,13 @@ curl -X POST http://localhost:8082/api/stock/slots/preheat \
 ```sql
 USE singularity_stock;
 INSERT INTO stock (product_id, available_quantity, reserved_quantity, total_quantity) VALUES
-('IPHONE_16', 100, 0, 100),
-('PS5_PRO', 50, 0, 50),
-('RTX_5090', 10, 0, 10),
-('SWITCH_2', 30, 0, 30);
+('PROD_001', 100, 0, 100),
+('PROD_002', 50, 0, 50),
+('PROD_003', 10, 0, 10),
+('PROD_004', 30, 0, 30);
 ```
+
+> 注意：`singularity-order.yaml` 的 slot 配置需包含 `product-id`，并与库存表中的 `product_id` 一一对应。
 
 #### 4.3 前端开发环境
 
@@ -154,14 +156,6 @@ Vite 代理已配置（`vite.config.ts`）：
 
 **影响范围**：前端订单列表、抢单状态轮询均显示"处理中"。
 
-### 2. MySQL 库存表不随抢单扣减
-
-**现象**：`stock` 表的 `available_quantity` 始终等于初始值，抢单后不会减少。
-
-**根因**：抢单流程只通过 Redis Lua 脚本扣减 `stock:bucket-{n}` 的 Redis 库存，但 **没有生产者向 `stock-topic` 发送消息**。`StockConsumer`（`singularity-stock/.../listener/StockConsumer.java`）监听 `stock-topic` 并负责异步落库扣减，但由于从未收到消息，MySQL 库存始终不变。
-
-**影响范围**：管理后台库存列表看到的可用库存是初始化值，非实时值。Redis bucket 库存是真实剩余量（可通过 `redis-cli GET stock:bucket-1` 查看）。
-
-### 3. 订单状态类型与 API 契约不一致
+### 2. 订单状态类型与 API 契约不一致
 
 API 契约（`docs/frontend/03-frontend-api-contracts.md`）规定 `status` 为 number（0=处理中, 1=成功, 2=失败），但后端实际返回字符串 `"CREATED"`。前端已做兼容处理：将 `"CREATED"` 视为处理中。

@@ -7,7 +7,7 @@
 - **端口**: 8082
 - **数据库**: `singularity_stock`
 - **服务**: 库存查询、库存扣减、库存还原、库存变更日志记录
-- **MQ消费**: 消费 `stock-topic` 主题
+- **MQ消费**: 消费 `stock-topic`（通用库存变更）与 `order-topic`（抢单事件）
 - **消费组**: `stock-consumer-group`
 
 ## 核心特性
@@ -66,6 +66,11 @@
 - **Topic**: `stock-topic`
 - **ConsumerGroup**: `stock-consumer-group`
 - **消费模式**: 顺序消费（ORDERLY）
+
+### 抢单事件主题
+- **Topic**: `order-topic`
+- **ConsumerGroup**: `stock-order-consumer-group`
+- **消费内容**: JSON `OrderMessage`，包含 `orderId`、`productId`、`userId`、`slotId`、`createTime`
 
 ### 消息内容格式
 ```
@@ -195,10 +200,9 @@ java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar
 3. **交互流程**:
    ```
    Order服务创建订单 
-   → Order服务发送库存扣减消息到 stock-topic
-   → Stock服务消费消息 
+   → Order服务发送抢单消息到 order-topic（消息内包含 productId）
+   → Stock服务消费消息并扣减MySQL库存
    → Stock服务写入 stock_change_log
-   → Stock服务执行库存扣减
    → Stock服务回复消息处理结果
    ```
 

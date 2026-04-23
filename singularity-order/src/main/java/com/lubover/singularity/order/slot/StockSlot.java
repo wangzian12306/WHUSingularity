@@ -11,10 +11,12 @@ public class StockSlot implements Slot {
 
     private final String id;
     private final String redisStockKey;
+    private final String productId;
 
-    public StockSlot(String id, String redisStockKey) {
+    public StockSlot(String id, String redisStockKey, String productId) {
         this.id = id;
         this.redisStockKey = redisStockKey;
+        this.productId = productId;
     }
 
     @Override
@@ -26,8 +28,14 @@ public class StockSlot implements Slot {
         return redisStockKey;
     }
 
+    public String getProductId() {
+        return productId;
+    }
+
     @Override
     public Map<String, ?> getMetadata() {
-        return Map.of("redisStockKey", redisStockKey);
+        return Map.of(
+                "redisStockKey", redisStockKey,
+                "productId", productId);
     }
 }

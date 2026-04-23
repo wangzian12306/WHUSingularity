@@ -235,7 +235,7 @@ services:
       ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
       ROCKETMQ_PRODUCER_GROUP: order-producer-group
       ROCKETMQ_CONSUMER_GROUP: order-consumer-group
-      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1"},{"id":"bucket-2","redis-key":"stock:bucket-2"}]}}}'
+      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1","product-id":"PROD_001"},{"id":"bucket-2","redis-key":"stock:bucket-2","product-id":"PROD_002"}]}}}'
       SERVER_PORT: "8081"
     volumes:
       - ../:/workspace
@@ -264,7 +264,7 @@ services:
       ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
       ROCKETMQ_PRODUCER_GROUP: order-producer-group
       ROCKETMQ_CONSUMER_GROUP: order-consumer-group
-      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1"},{"id":"bucket-2","redis-key":"stock:bucket-2"}]}}}'
+      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1","product-id":"PROD_001"},{"id":"bucket-2","redis-key":"stock:bucket-2","product-id":"PROD_002"}]}}}'
       # 与单实例(8081) 及 order-2(8083) 错开
       SERVER_PORT: "8085"
     volumes:
@@ -294,7 +294,7 @@ services:
       ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
       ROCKETMQ_PRODUCER_GROUP: order-producer-group
       ROCKETMQ_CONSUMER_GROUP: order-consumer-group
-      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1"},{"id":"bucket-2","redis-key":"stock:bucket-2"}]}}}'
+      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1","product-id":"PROD_001"},{"id":"bucket-2","redis-key":"stock:bucket-2","product-id":"PROD_002"}]}}}'
       SERVER_PORT: "8083"
     volumes:
       - ../:/workspace

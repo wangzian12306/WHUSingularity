@@ -100,7 +100,7 @@
 | 库存列表展示 | 通过 | 四列数据正确 |
 | 初始化库存 | 通过 | 新记录刷新正常，重复初始化报 `STOCK_ALREADY_EXISTS` |
 | 变更日志 | 通过 | 按 `productId` 过滤展示 |
-| **已知限制** | — | MySQL `stock` 表不随抢单扣减（后端缺 `stock-topic` 生产者），见 `docs/startup.md` |
+| **已知限制** | — | 无（抢单后库存已通过 `order-topic` 异步扣减并落库） |
 
 ### Task 7 — Admin 订单管理 `/admin/orders`
 

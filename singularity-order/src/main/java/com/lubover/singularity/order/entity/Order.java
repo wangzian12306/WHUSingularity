@@ -23,6 +23,11 @@ public class Order {
     private String slotId;
 
     /**
+     * 商品ID
+     */
+    private String productId;
+
+    /**
      * 订单状态: CREATED-已创建, PAID-已支付, CANCELLED-已取消
      */
     private String status;
@@ -81,6 +86,14 @@ public class Order {
         this.status = status;
     }
 
+    public String getProductId() {
+        return productId;
+    }
+
+    public void setProductId(String productId) {
+        this.productId = productId;
+    }
+
     public LocalDateTime getCreateTime() {
         return createTime;
     }
@@ -103,6 +116,7 @@ public class Order {
                 "orderId='" + orderId + '\'' +
                 ", userId='" + userId + '\'' +
                 ", slotId='" + slotId + '\'' +
+                ", productId='" + productId + '\'' +
                 ", status='" + status + '\'' +
                 ", createTime=" + createTime +
                 ", updateTime=" + updateTime +

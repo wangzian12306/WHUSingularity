@@ -48,7 +48,9 @@ rocketmq:
   producer:
     group: order-producer-group
   consumer:
-    group: order-consumer-group
+    order:
+      topic: order-topic
+      group: order-consumer-group
 
 # Slot（Redis 库存桶）配置
 # 每个 slot 对应一个 Redis 库存 key，id 用于分槽路由
@@ -57,8 +59,10 @@ singularity:
     slots:
       - id: bucket-1
         redis-key: stock:bucket-1
+        product-id: PROD_001
       - id: bucket-2
         redis-key: stock:bucket-2
+        product-id: PROD_002
 ```
 
 ---
@@ -104,7 +108,12 @@ spring:
 rocketmq:
   name-server: localhost:9876
   consumer:
-    group: stock-consumer-group
+    stock:
+      topic: stock-topic
+      group: stock-consumer-group
+    order:
+      topic: order-topic
+      group: stock-order-consumer-group
 ```
 
 ---

@@ -17,3 +17,8 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
+rocketmq:
+  consumer:
+    order:
+      topic: ${ROCKETMQ_CONSUMER_ORDER_TOPIC:order-topic}
+      group: ${ROCKETMQ_CONSUMER_ORDER_GROUP:stock-order-consumer-group}

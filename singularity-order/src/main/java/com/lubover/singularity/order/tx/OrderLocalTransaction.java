@@ -41,8 +41,9 @@ public class OrderLocalTransaction {
                 'orderId', ARGV[1],
                 'actorId', ARGV[2],
                 'slotId', ARGV[3],
-                'status', ARGV[4],
-                'createTime', ARGV[5])
+                'productId', ARGV[4],
+                'status', ARGV[5],
+                'createTime', ARGV[6])
 
             return remaining
             """;
@@ -52,20 +53,26 @@ public class OrderLocalTransaction {
     private final String orderId;
     private final String actorId;
     private final String slotId;
+    private final String productId;
     private final String redisStockKey;
     private final StringRedisTemplate redisTemplate;
     private final SlotRegistry registry;
+    private final LocalDateTime createTime;
 
     public OrderLocalTransaction(String orderId, String actorId, String slotId,
+            String productId,
             String redisStockKey,
             StringRedisTemplate redisTemplate,
-            SlotRegistry registry) {
+            SlotRegistry registry,
+            LocalDateTime createTime) {
         this.orderId = orderId;
         this.actorId = actorId;
         this.slotId = slotId;
+        this.productId = productId;
         this.redisStockKey = redisStockKey;
         this.redisTemplate = redisTemplate;
         this.registry = registry;
+        this.createTime = createTime;
     }
 
     public String getOrderId() {
@@ -89,8 +96,9 @@ public class OrderLocalTransaction {
                     orderId,
                     actorId,
                     slotId,
+                    productId,
                     "1",
-                    LocalDateTime.now().toString());
+                    createTime.toString());
 
             if (remaining == null || remaining < 0) {
                 log.warn("stock exhausted or lua failed: slot={} key={}", slotId, redisStockKey);

@@ -2,6 +2,7 @@ package com.lubover.singularity.order.service.impl;
 
 import com.lubover.singularity.api.*;
 import com.lubover.singularity.api.impl.DefaultAllocator;
+import com.lubover.singularity.order.dto.OrderMessage;
 import com.lubover.singularity.order.registry.SlotRegistry;
 import com.lubover.singularity.order.service.OrderService;
 import com.lubover.singularity.order.tx.OrderLocalTransaction;
@@ -14,6 +15,7 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -51,17 +53,30 @@ public class OrderServiceImpl implements OrderService {
             Slot slot = context.getCurrSlot();
             String orderId = UUID.randomUUID().toString();
             String redisStockKey = (String) slot.getMetadata().get("redisStockKey");
+            String productId = (String) slot.getMetadata().get("productId");
+            if (productId == null || productId.isBlank()) {
+                context.setResult(new Result(false, "slot productId missing for slot: " + slot.getId()));
+                return;
+            }
+            LocalDateTime createTime = LocalDateTime.now();
 
             // Step 1: 构造本地事务对象（Redis 减库存 + 写 order），作为 arg 传入
             // RocketMQ 在半消息确认后会回调 OrderTransactionListener.executeLocalTransaction，
             // 后者直接委托给该对象执行，不再包含任何业务逻辑
             OrderLocalTransaction localTx = new OrderLocalTransaction(
                     orderId, actor.getId(), slot.getId(),
-                    redisStockKey, redisTemplate, slotRegistry);
+                    productId, redisStockKey, redisTemplate, slotRegistry, createTime);
+
+            OrderMessage orderMessage = new OrderMessage();
+            orderMessage.setOrderId(orderId);
+            orderMessage.setProductId(productId);
+            orderMessage.setUserId(actor.getId());
+            orderMessage.setSlotId(slot.getId());
+            orderMessage.setCreateTime(createTime);
 
             // Step 2: 发送 RocketMQ 半消息，触发本地事务
             // sendMessageInTransaction 同步等待 executeLocalTransaction 执行完毕再返回
-            Message<String> msg = MessageBuilder.withPayload(orderId)
+            Message<OrderMessage> msg = MessageBuilder.withPayload(orderMessage)
                     .setHeader("orderId", orderId)
                     .build();
 

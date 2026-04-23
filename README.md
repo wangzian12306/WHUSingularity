@@ -81,7 +81,7 @@ GET /api/user/{id}
 
 ### 消息消费
 
-订单服务监听 `order-topic`，从 Redis 读取订单详情后落库到 MySQL，保证幂等性。
+订单服务监听 `order-topic`，直接消费订单 JSON 消息落库到 MySQL，保证幂等性。
 
 ---
 

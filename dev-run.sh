@@ -78,8 +78,10 @@ singularity:
     slots:
       - id: bucket-1
         redis-key: stock:bucket-1
+        product-id: PROD_001
       - id: bucket-2
         redis-key: stock:bucket-2
+        product-id: PROD_002
 EOF
 
 read -r -d '' USER_CONFIG <<'EOF' || true
@@ -108,6 +110,12 @@ rocketmq:
   name-server: rmq-namesrv:9876
   consumer:
     group: stock-consumer-group
+    stock:
+      topic: stock-topic
+      group: stock-consumer-group
+    order:
+      topic: order-topic
+      group: stock-order-consumer-group
 EOF
 
 echo "[STEP 1/4] 启动基础依赖容器 (MySQL/Redis/Nacos/RocketMQ)..."

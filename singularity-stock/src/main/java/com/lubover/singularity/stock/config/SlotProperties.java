@@ -27,6 +27,7 @@ public class SlotProperties {
     public static class SlotConfig {
         private String id;
         private String redisKey;
+        private String productId;
 
         public String getId() {
             return id;
@@ -42,6 +43,14 @@ public class SlotProperties {
 
         public void setRedisKey(String redisKey) {
             this.redisKey = redisKey;
+        }
+
+        public String getProductId() {
+            return productId;
+        }
+
+        public void setProductId(String productId) {
+            this.productId = productId;
         }
     }
 }
