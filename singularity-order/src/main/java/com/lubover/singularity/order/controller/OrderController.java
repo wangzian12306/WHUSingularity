@@ -64,6 +64,20 @@ public class OrderController {
         return success(order);
     }
 
+    @PostMapping("/{orderId}/pay")
+    public Map<String, Object> payOrder(@PathVariable("orderId") String orderId,
+            @RequestBody Map<String, Object> request) {
+        String userId = request.get("userId") == null ? null : String.valueOf(request.get("userId"));
+        if (userId == null || userId.isBlank()) {
+            return failure("userId is required");
+        }
+        Result result = orderService.payOrder(orderId, userId);
+        if (result.isSuccess()) {
+            return success(null);
+        }
+        return failure(result.getMessage());
+    }
+
     @GetMapping("/list")
     public Map<String, Object> listOrders(
             @RequestParam(value = "actorId", required = false) String actorId,

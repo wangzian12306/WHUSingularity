@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, Button, Row, Col, Badge, Spin, Alert, Space, Typography, message } from 'antd'
 import { useAuth } from '../contexts/AuthContext'
 import { stockApi } from '../api/stock'
@@ -18,6 +19,7 @@ interface PollingOrder {
 
 export default function Home() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [stocks, setStocks] = useState<Stock[]>([])
   const [loading, setLoading] = useState(false)
   const [snaggingIds, setSnaggingIds] = useState<Set<string>>(new Set())
@@ -139,9 +141,9 @@ export default function Home() {
   }
 
   const statusLabel = (status: string) => {
-    if (status === 'PAID') return { text: '抢单成功', color: 'success' as const }
-    if (status === 'CANCELLED') return { text: '抢单失败', color: 'error' as const }
-    return { text: '处理中...', color: 'processing' as const }
+    if (status === 'PAID') return { text: '支付成功', color: 'success' as const }
+    if (status === 'CANCELLED') return { text: '已取消', color: 'error' as const }
+    return { text: '订单已创建，请前往支付', color: 'warning' as const }
   }
 
   return (
@@ -189,11 +191,21 @@ export default function Home() {
           <Space direction="vertical" style={{ width: '100%' }}>
             {pollingOrders.map((o) => {
               const { text, color } = statusLabel(o.status)
+              const isPending = o.status !== 'PAID' && o.status !== 'CANCELLED'
               return (
                 <Alert
                   key={o.orderId}
                   message={`商品: ${o.productId} | 订单: ${o.orderId.slice(0, 8)}...`}
-                  description={text}
+                  description={
+                    isPending ? (
+                      <span>
+                        {text}{' '}
+                        <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate('/user-center')}>
+                          前往用户中心支付
+                        </Button>
+                      </span>
+                    ) : text
+                  }
                   type={color === 'processing' ? 'info' : color}
                   showIcon
                 />

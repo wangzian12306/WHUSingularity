@@ -7,4 +7,7 @@ export const orderApi = {
 
   list: (params?: OrderListParams) =>
     request<OrderListResponse>({ method: 'GET', url: '/api/order/list', params }),
+
+  pay: (orderId: string, userId: string) =>
+    request<void>({ method: 'POST', url: `/api/order/${orderId}/pay`, data: { userId } }),
 }

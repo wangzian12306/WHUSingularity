@@ -23,6 +23,8 @@ export default function UserCenter() {
   const [recharging, setRecharging] = useState(false)
   const [rechargeForm] = Form.useForm()
 
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null)
+
   const fetchUserDetail = useCallback(async () => {
     if (!user) return
     setLoadingUser(true)
@@ -83,6 +85,25 @@ export default function UserCenter() {
     }
   }
 
+  const handlePay = async (orderId: string) => {
+    if (!user) return
+    setPayingOrderId(orderId)
+    try {
+      const res = await orderApi.pay(orderId, String(user.id))
+      if (res.success) {
+        message.success('支付成功')
+        fetchUserDetail()
+        fetchOrders(page - 1, pageSize)
+      } else {
+        message.error(res.message ?? res.error?.message ?? '支付失败')
+      }
+    } catch {
+      message.error('支付失败，请稍后重试')
+    } finally {
+      setPayingOrderId(null)
+    }
+  }
+
   const handleTableChange = (pagination: { current?: number; pageSize?: number }) => {
     const p = pagination.current ?? 1
     setPage(p)
@@ -95,10 +116,23 @@ export default function UserCenter() {
     {
       title: '状态',
       dataIndex: 'status',
-      render: (v: string) => {
-        if (v === 'PAID') return <Tag color="success">成功</Tag>
-        if (v === 'CANCELLED') return <Tag color="error">失败</Tag>
-        return <Tag color="processing">处理中</Tag>
+      render: (v: string, record: Order) => {
+        if (v === 'PAID') return <Tag color="success">已支付</Tag>
+        if (v === 'CANCELLED') return <Tag color="error">已取消</Tag>
+        return (
+          <Space>
+            <Tag color="processing">待支付</Tag>
+            <Button
+              size="small"
+              type="primary"
+              loading={payingOrderId === record.orderId}
+              disabled={payingOrderId !== null && payingOrderId !== record.orderId}
+              onClick={() => handlePay(record.orderId)}
+            >
+              立即支付 ¥99
+            </Button>
+          </Space>
+        )
       },
     },
     { title: '创建时间', dataIndex: 'createTime' },
