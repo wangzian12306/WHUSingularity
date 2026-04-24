@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lubover.singularity.merchant.mapper.ProductInventoryMapper">
+
+    <resultMap id="BaseResultMap" type="com.lubover.singularity.merchant.entity.ProductInventory">
+        <id column="id" property="id" />
+        <result column="product_id" property="productId" />
+        <result column="total_quantity" property="totalQuantity" />
+        <result column="available_quantity" property="availableQuantity" />
+        <result column="locked_quantity" property="lockedQuantity" />
+        <result column="sold_quantity" property="soldQuantity" />
+        <result column="warning_quantity" property="warningQuantity" />
+        <result column="version" property="version" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+
+    <insert id="insert" parameterType="com.lubover.singularity.merchant.entity.ProductInventory" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO product_inventory (product_id, total_quantity, available_quantity, locked_quantity, sold_quantity, warning_quantity, version, create_time, update_time)
+        VALUES (#{productId}, #{totalQuantity}, #{availableQuantity}, #{lockedQuantity}, #{soldQuantity}, #{warningQuantity}, #{version}, NOW(), NOW())
+    </insert>
+
+    <update id="update" parameterType="com.lubover.singularity.merchant.entity.ProductInventory">
+        UPDATE product_inventory
+        <set>
+            <if test="totalQuantity != null">total_quantity = #{totalQuantity},</if>
+            <if test="availableQuantity != null">available_quantity = #{availableQuantity},</if>
+            <if test="lockedQuantity != null">locked_quantity = #{lockedQuantity},</if>
+            <if test="soldQuantity != null">sold_quantity = #{soldQuantity},</if>
+            <if test="warningQuantity != null">warning_quantity = #{warningQuantity},</if>
+            update_time = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="incrementAvailable">
+        UPDATE product_inventory 
+        SET available_quantity = available_quantity + #{quantity}, 
+            total_quantity = total_quantity + #{quantity}, 
+            version = version + 1, 
+            update_time = NOW()
+        WHERE product_id = #{productId} AND version = #{version}
+    </update>
+
+    <update id="lockInventory">
+        UPDATE product_inventory 
+        SET available_quantity = available_quantity - #{quantity}, 
+            locked_quantity = locked_quantity + #{quantity}, 
+            version = version + 1, 
+            update_time = NOW()
+        WHERE product_id = #{productId} 
+        AND available_quantity >= #{quantity} 
+        AND version = #{version}
+    </update>
+
+    <update id="unlockInventory">
+        UPDATE product_inventory 
+        SET available_quantity = available_quantity + #{quantity}, 
+            locked_quantity = locked_quantity - #{quantity}, 
+            update_time = NOW()
+        WHERE product_id = #{productId}
+    </update>
+
+    <update id="confirmSale">
+        UPDATE product_inventory 
+        SET locked_quantity = locked_quantity - #{quantity}, 
+            sold_quantity = sold_quantity + #{quantity}, 
+            update_time = NOW()
+        WHERE product_id = #{productId}
+    </update>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM product_inventory WHERE id = #{id}
+    </select>
+
+    <select id="selectByProductId" resultMap="BaseResultMap">
+        SELECT * FROM product_inventory WHERE product_id = #{productId}
+    </select>
+
+</mapper>

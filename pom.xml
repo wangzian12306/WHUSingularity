@@ -24,6 +24,7 @@
         <module>singularity-user</module>
         <module>singularity-order</module>
         <module>singularity-stock</module>
+        <module>singularity-merchant</module>
     </modules>
 
     <dependencyManagement>
