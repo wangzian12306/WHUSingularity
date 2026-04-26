@@ -113,3 +113,62 @@ export interface OrderListParams {
   page?: number
   size?: number
 }
+
+// Merchant
+export interface Merchant {
+  id: number
+  username: string
+  shopName: string
+  contactName: string | null
+  contactPhone: string | null
+  address: string | null
+  description: string | null
+  status: number
+  avatar: string | null
+  createTime: string
+}
+
+export interface MerchantView {
+  id: number
+  username: string
+  shopName: string
+  contactName: string | null
+  contactPhone: string | null
+  address: string | null
+  description: string | null
+  status: number
+  avatar: string | null
+  createTime: string
+}
+
+export interface MerchantLoginRequest {
+  username: string
+  password: string
+}
+
+export interface MerchantLoginResponse {
+  tokenType: string
+  accessToken: string
+  expiresIn: number
+  merchant: MerchantView
+}
+
+export interface MerchantRegisterRequest {
+  username: string
+  password: string
+  shopName: string
+  contactName?: string
+  contactPhone?: string
+  address?: string
+  description?: string
+}
+
+export interface UpdateMerchantRequest {
+  shopName?: string
+  contactName?: string
+  contactPhone?: string
+  address?: string
+  description?: string
+  avatar?: string
+  password?: string
+}

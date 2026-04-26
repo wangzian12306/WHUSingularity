@@ -74,7 +74,9 @@ public class MerchantServiceImpl implements MerchantService {
             MerchantView view = convertToView(merchant);
 
             LoginResponse response = new LoginResponse();
+            response.setTokenType("Bearer");
             response.setAccessToken(token);
+            response.setExpiresIn(jwtProvider.getExpireSeconds());
             response.setMerchant(view);
             return response;
         } catch (Exception e) {
@@ -88,7 +90,7 @@ public class MerchantServiceImpl implements MerchantService {
     }
 
     @Override
-    @Cacheable(value = "merchant", key = "#id")
+    @Cacheable(value = "merchant", key = "#a0")
     public Merchant getMerchantById(Long id) {
         Merchant merchant = merchantMapper.selectById(id);
         if (merchant == null) {
@@ -120,7 +122,7 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional
-    @CachePut(value = "merchant", key = "#merchant.id")
+    @CachePut(value = "merchant", key = "#a0.id")
     public Merchant updateMerchant(Merchant merchant) {
         Merchant existing = getCurrentMerchant();
         
@@ -134,7 +136,7 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "merchant", key = "#id")
+    @CacheEvict(value = "merchant", key = "#a0")
     public void updateMerchantStatus(Long id, Integer status) {
         if (status < 0 || status > 2) {
             throw new BusinessException(ErrorCode.REQ_INVALID_PARAM);

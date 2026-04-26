@@ -91,4 +91,8 @@ public class JwtProvider {
     public String getUsernameFromClaims(JWTClaimsSet claims) {
         return (String) claims.getClaim(USERNAME_CLAIM);
     }
+
+    public long getExpireSeconds() {
+        return EXPIRATION_HOURS * 60 * 60;
+    }
 }
