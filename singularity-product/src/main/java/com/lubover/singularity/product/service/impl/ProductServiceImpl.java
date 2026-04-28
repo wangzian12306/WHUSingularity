@@ -1,6 +1,9 @@
 package com.lubover.singularity.product.service.impl;
 
 import com.lubover.singularity.product.cache.ProductCacheService;
+import com.lubover.singularity.product.cache.ProductCacheService.CacheState;
+import com.lubover.singularity.product.cache.ProductCacheService.DetailCacheResult;
+import com.lubover.singularity.product.cache.ProductCacheService.ListCacheResult;
 import com.lubover.singularity.product.dto.CreateProductRequest;
 import com.lubover.singularity.product.dto.PageResponse;
 import com.lubover.singularity.product.dto.ProductView;
@@ -74,20 +77,23 @@ public class ProductServiceImpl implements ProductService {
         String key = productId.trim();
 
         // 1. 读缓存（两级）
-        ProductView cached = cacheService.getDetail(key);
-        if (cached != null) {
-            return cached;
+        DetailCacheResult cacheResult = cacheService.getDetail(key);
+        if (cacheResult.getState() == CacheState.HIT_VALUE) {
+            log.info("product detail cache hit: productId={}", key);
+            return cacheResult.getValue();
         }
-        // 命中空标记（防穿透）：getDetail 返回 null 并非一定是 miss，
-        // 需要区分"空标记命中"与"完全未命中"。
-        // ProductCacheService 内部统一返回 null 表示两种情况；
-        // 这里直接走 DB，若 DB 也无记录则缓存空值。
+        if (cacheResult.getState() == CacheState.HIT_NULL) {
+            log.info("product detail null-marker hit: productId={}", key);
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
 
         // 2. 查 DB
+        log.info("product detail cache miss, querying db: productId={}", key);
         Product product = productMapper.selectByProductId(key);
         if (product == null) {
             // 缓存空值防穿透
             cacheService.putDetail(key, null);
+            log.info("product detail db miss, cached null marker: productId={}", key);
             throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
         }
 
@@ -154,12 +160,18 @@ public class ProductServiceImpl implements ProductService {
         String queryHash = ProductCacheService.buildListHash(status, normalizedCategory, normalizedKeyword, normalizedPageNo, normalizedPageSize);
 
         // 1. 读缓存
-        PageResponse<ProductView> cached = cacheService.getList(queryHash);
-        if (cached != null) {
-            return cached;
+        ListCacheResult cacheResult = cacheService.getList(queryHash);
+        if (cacheResult.getState() == CacheState.HIT_VALUE) {
+            log.info("product list cache hit: hash={}", queryHash);
+            return cacheResult.getValue();
+        }
+        if (cacheResult.getState() == CacheState.HIT_NULL) {
+            log.info("product list null-marker hit: hash={}", queryHash);
+            return PageResponse.of(List.of(), 0, normalizedPageNo, normalizedPageSize);
         }
 
         // 2. 查 DB
+        log.info("product list cache miss, querying db: hash={}", queryHash);
         int offset = (normalizedPageNo - 1) * normalizedPageSize;
         List<ProductView> views = productMapper
                 .selectList(status, normalizedCategory, normalizedKeyword, offset, normalizedPageSize)
@@ -169,6 +181,11 @@ public class ProductServiceImpl implements ProductService {
         long total = productMapper.countList(status, normalizedCategory, normalizedKeyword);
         PageResponse<ProductView> page = PageResponse.of(views, total, normalizedPageNo, normalizedPageSize);
 
+        if (views.isEmpty()) {
+            cacheService.putList(queryHash, null);
+            log.info("product list db miss, cached null marker: hash={}", queryHash);
+            return page;
+        }
         cacheService.putList(queryHash, page);
         return page;
     }

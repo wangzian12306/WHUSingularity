@@ -56,14 +56,16 @@ public class ProductCacheService {
 
     // ── Detail ────────────────────────────────────────────────────────────────
 
-    public ProductView getDetail(String productId) {
+    public DetailCacheResult getDetail(String productId) {
         String key = PREFIX_DETAIL + productId;
 
         // 1. 本地缓存
         String raw = localCache.getIfPresent(key);
         if (raw != null) {
             log.debug("cache hit [local] key={}", key);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserialize(raw, ProductView.class);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? DetailCacheResult.nullHit()
+                    : DetailCacheResult.value(deserialize(raw, ProductView.class));
         }
 
         // 2. Redis
@@ -71,10 +73,13 @@ public class ProductCacheService {
         if (raw != null) {
             log.debug("cache hit [redis] key={}", key);
             localCache.put(key, raw);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserialize(raw, ProductView.class);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? DetailCacheResult.nullHit()
+                    : DetailCacheResult.value(deserialize(raw, ProductView.class));
         }
 
-        return null; // miss，由 Service 查 DB 后回填
+        log.info("cache miss [detail] key={}", key);
+        return DetailCacheResult.miss();
     }
 
     public void putDetail(String productId, ProductView view) {
@@ -95,23 +100,28 @@ public class ProductCacheService {
 
     // ── List ──────────────────────────────────────────────────────────────────
 
-    public PageResponse<ProductView> getList(String queryHash) {
+    public ListCacheResult getList(String queryHash) {
         String key = PREFIX_LIST + queryHash;
 
         String raw = localCache.getIfPresent(key);
         if (raw != null) {
             log.debug("cache hit [local] key={}", key);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserializePageResponse(raw);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? ListCacheResult.nullHit()
+                    : ListCacheResult.value(deserializePageResponse(raw));
         }
 
         raw = redisTemplate.opsForValue().get(key);
         if (raw != null) {
             log.debug("cache hit [redis] key={}", key);
             localCache.put(key, raw);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserializePageResponse(raw);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? ListCacheResult.nullHit()
+                    : ListCacheResult.value(deserializePageResponse(raw));
         }
 
-        return null;
+        log.info("cache miss [list] key={}", key);
+        return ListCacheResult.miss();
     }
 
     public void putList(String queryHash, PageResponse<ProductView> page) {
@@ -172,6 +182,72 @@ public class ProductCacheService {
         } catch (Exception e) {
             log.warn("Cache deserialize PageResponse error, treating as miss: {}", e.getMessage());
             return null;
+        }
+    }
+
+    public enum CacheState {
+        HIT_VALUE,
+        HIT_NULL,
+        MISS
+    }
+
+    public static class ListCacheResult {
+        private final CacheState state;
+        private final PageResponse<ProductView> value;
+
+        private ListCacheResult(CacheState state, PageResponse<ProductView> value) {
+            this.state = state;
+            this.value = value;
+        }
+
+        public static ListCacheResult value(PageResponse<ProductView> value) {
+            return new ListCacheResult(CacheState.HIT_VALUE, value);
+        }
+
+        public static ListCacheResult nullHit() {
+            return new ListCacheResult(CacheState.HIT_NULL, null);
+        }
+
+        public static ListCacheResult miss() {
+            return new ListCacheResult(CacheState.MISS, null);
+        }
+
+        public CacheState getState() {
+            return state;
+        }
+
+        public PageResponse<ProductView> getValue() {
+            return value;
+        }
+    }
+
+    public static class DetailCacheResult {
+        private final CacheState state;
+        private final ProductView value;
+
+        private DetailCacheResult(CacheState state, ProductView value) {
+            this.state = state;
+            this.value = value;
+        }
+
+        public static DetailCacheResult value(ProductView value) {
+            return new DetailCacheResult(CacheState.HIT_VALUE, value);
+        }
+
+        public static DetailCacheResult nullHit() {
+            return new DetailCacheResult(CacheState.HIT_NULL, null);
+        }
+
+        public static DetailCacheResult miss() {
+            return new DetailCacheResult(CacheState.MISS, null);
+        }
+
+        public CacheState getState() {
+            return state;
+        }
+
+        public ProductView getValue() {
+            return value;
         }
     }
 }
