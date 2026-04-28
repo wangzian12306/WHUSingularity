@@ -9,6 +9,8 @@ import com.lubover.singularity.product.dto.PageResponse;
 import com.lubover.singularity.product.dto.ProductView;
 import com.lubover.singularity.product.dto.UpdateProductRequest;
 import com.lubover.singularity.product.entity.Product;
+import com.lubover.singularity.product.event.ProductEventPublisher;
+import com.lubover.singularity.product.event.ProductUpdatedEvent;
 import com.lubover.singularity.product.exception.BusinessException;
 import com.lubover.singularity.product.exception.ErrorCode;
 import com.lubover.singularity.product.mapper.ProductMapper;
@@ -33,10 +35,15 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductMapper productMapper;
     private final ProductCacheService cacheService;
+    private final ProductEventPublisher eventPublisher;
 
-    public ProductServiceImpl(ProductMapper productMapper, ProductCacheService cacheService) {
+    public ProductServiceImpl(
+            ProductMapper productMapper,
+            ProductCacheService cacheService,
+            ProductEventPublisher eventPublisher) {
         this.productMapper = productMapper;
         this.cacheService = cacheService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -68,6 +75,7 @@ public class ProductServiceImpl implements ProductService {
         // 新增后写入 detail 缓存，并失效所有 list 缓存
         cacheService.putDetail(view.getProductId(), view);
         cacheService.evictAllLists();
+        eventPublisher.publishAfterCommit(new ProductUpdatedEvent(view.getProductId(), ProductUpdatedEvent.Action.CREATED));
         return view;
     }
 
@@ -132,6 +140,7 @@ public class ProductServiceImpl implements ProductService {
         cacheService.evictDetail(productId.trim());
         cacheService.evictAllLists();
         log.info("product updated and cache evicted: productId={}", productId.trim());
+        eventPublisher.publishAfterCommit(new ProductUpdatedEvent(productId.trim(), ProductUpdatedEvent.Action.UPDATED));
         return view;
     }
 
@@ -146,6 +155,7 @@ public class ProductServiceImpl implements ProductService {
         cacheService.evictDetail(productId.trim());
         cacheService.evictAllLists();
         log.info("product deleted and cache evicted: productId={}", productId.trim());
+        eventPublisher.publishAfterCommit(new ProductUpdatedEvent(productId.trim(), ProductUpdatedEvent.Action.DELETED));
     }
 
     @Override

@@ -98,6 +98,12 @@ public class ProductCacheService {
         log.debug("cache evict key={}", key);
     }
 
+    public void evictLocalDetail(String productId) {
+        String key = PREFIX_DETAIL + productId;
+        localCache.invalidate(key);
+        log.debug("local cache evict key={}", key);
+    }
+
     // ── List ──────────────────────────────────────────────────────────────────
 
     public ListCacheResult getList(String queryHash) {
@@ -146,6 +152,11 @@ public class ProductCacheService {
         } catch (Exception e) {
             log.warn("evictAllLists redis error: {}", e.getMessage());
         }
+    }
+
+    public void evictLocalLists() {
+        localCache.asMap().keySet().removeIf(k -> k.startsWith(PREFIX_LIST));
+        log.debug("local cache evict list keys");
     }
 
     // ── Key util ──────────────────────────────────────────────────────────────

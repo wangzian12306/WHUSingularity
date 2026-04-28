@@ -18,3 +18,12 @@ mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
+rocketmq:
+  producer:
+    product:
+      topic: ${ROCKETMQ_PRODUCER_PRODUCT_TOPIC:product-cache-topic}
+  consumer:
+    product:
+      topic: ${ROCKETMQ_CONSUMER_PRODUCT_TOPIC:product-cache-topic}
+      group: ${ROCKETMQ_CONSUMER_PRODUCT_GROUP:product-cache-consumer-group}
