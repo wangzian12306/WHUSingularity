@@ -1,6 +1,7 @@
 package com.lubover.singularity.product.event;
 
 import com.lubover.singularity.product.cache.ProductCacheService;
+import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.slf4j.Logger;
@@ -14,6 +15,7 @@ import java.time.Duration;
 @RocketMQMessageListener(
         topic = "${rocketmq.consumer.product.topic:product-cache-topic}",
         consumerGroup = "${rocketmq.consumer.product.group:product-cache-consumer-group}",
+    messageModel = MessageModel.BROADCASTING,
         maxReconsumeTimes = 3)
 public class ProductEventConsumer implements RocketMQListener<ProductUpdatedEvent> {
 

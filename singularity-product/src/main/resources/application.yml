@@ -21,6 +21,7 @@ mybatis:
 
 rocketmq:
   producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:product-producer-group}
     product:
       topic: ${ROCKETMQ_PRODUCER_PRODUCT_TOPIC:product-cache-topic}
   consumer:

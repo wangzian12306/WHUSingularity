@@ -320,6 +320,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_PRODUCER_GROUP: product-producer-group
+      ROCKETMQ_PRODUCER_PRODUCT_TOPIC: product-cache-topic
+      ROCKETMQ_CONSUMER_PRODUCT_TOPIC: product-cache-topic
+      ROCKETMQ_CONSUMER_PRODUCT_GROUP: product-cache-consumer-group
       SERVER_PORT: "8087"
     volumes:
       - ../:/workspace
@@ -328,8 +333,69 @@ services:
       - mysql
       - redis
       - nacos
+      - rmq-broker
     ports:
       - "8087:8087"
+
+  singularity-product-1:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-product-1
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "java -jar singularity-product/target/singularity-product-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_product?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_PRODUCER_GROUP: product-producer-group
+      ROCKETMQ_PRODUCER_PRODUCT_TOPIC: product-cache-topic
+      ROCKETMQ_CONSUMER_PRODUCT_TOPIC: product-cache-topic
+      ROCKETMQ_CONSUMER_PRODUCT_GROUP: product-cache-consumer-group
+      SERVER_PORT: "8088"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rmq-broker
+    ports:
+      - "8088:8088"
+
+  singularity-product-2:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-product-2
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "java -jar singularity-product/target/singularity-product-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_product?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+      ROCKETMQ_PRODUCER_GROUP: product-producer-group
+      ROCKETMQ_PRODUCER_PRODUCT_TOPIC: product-cache-topic
+      ROCKETMQ_CONSUMER_PRODUCT_TOPIC: product-cache-topic
+      ROCKETMQ_CONSUMER_PRODUCT_GROUP: product-cache-consumer-group
+      SERVER_PORT: "8089"
+    volumes:
+      - ../:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+      - rmq-broker
+    ports:
+      - "8089:8089"
   singularity-front:
     build:
       context: ../singularity-front

@@ -9,9 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Collections;
 
 /**
  * Cache-Aside 两级缓存组件。
@@ -33,6 +35,8 @@ public class ProductCacheService {
     static final String NULL_PLACEHOLDER = "__NULL__";
     static final String PREFIX_DETAIL = "product:detail:";
     static final String PREFIX_LIST = "product:list:";
+    static final String PREFIX_DETAIL_LOCK = "product:lock:detail:";
+    static final String PREFIX_LIST_LOCK = "product:lock:list:";
 
     // detail 缓存 TTL：Redis 30 分钟，本地 5 分钟（由 Caffeine 配置控制）
     private static final Duration REDIS_DETAIL_TTL = Duration.ofMinutes(30);
@@ -40,6 +44,16 @@ public class ProductCacheService {
     private static final Duration REDIS_LIST_TTL = Duration.ofMinutes(10);
     // 空值缓存 TTL（防穿透）
     private static final Duration NULL_TTL = Duration.ofSeconds(60);
+    // 缓存击穿锁 TTL，避免锁持有者异常退出后一直阻塞
+    private static final Duration CACHE_LOCK_TTL = Duration.ofSeconds(10);
+
+    private static final String UNLOCK_LUA = """
+            if redis.call('GET', KEYS[1]) == ARGV[1] then
+                return redis.call('DEL', KEYS[1])
+            end
+            return 0
+            """;
+    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT = new DefaultRedisScript<>(UNLOCK_LUA, Long.class);
 
     private final Cache<String, String> localCache;
     private final RedisTemplate<String, String> redisTemplate;
@@ -104,6 +118,14 @@ public class ProductCacheService {
         log.debug("local cache evict key={}", key);
     }
 
+    public boolean tryLockDetail(String productId, String token) {
+        return tryLock(PREFIX_DETAIL_LOCK + productId, token);
+    }
+
+    public void unlockDetail(String productId, String token) {
+        unlock(PREFIX_DETAIL_LOCK + productId, token);
+    }
+
     // ── List ──────────────────────────────────────────────────────────────────
 
     public ListCacheResult getList(String queryHash) {
@@ -159,6 +181,14 @@ public class ProductCacheService {
         log.debug("local cache evict list keys");
     }
 
+    public boolean tryLockList(String queryHash, String token) {
+        return tryLock(PREFIX_LIST_LOCK + queryHash, token);
+    }
+
+    public void unlockList(String queryHash, String token) {
+        unlock(PREFIX_LIST_LOCK + queryHash, token);
+    }
+
     // ── Key util ──────────────────────────────────────────────────────────────
 
     /** 将查询参数规范化为 key hash，避免 key 包含特殊字符 */
@@ -193,6 +223,19 @@ public class ProductCacheService {
         } catch (Exception e) {
             log.warn("Cache deserialize PageResponse error, treating as miss: {}", e.getMessage());
             return null;
+        }
+    }
+
+    private boolean tryLock(String lockKey, String token) {
+        Boolean ok = redisTemplate.opsForValue().setIfAbsent(lockKey, token, CACHE_LOCK_TTL);
+        return Boolean.TRUE.equals(ok);
+    }
+
+    private void unlock(String lockKey, String token) {
+        try {
+            redisTemplate.execute(UNLOCK_SCRIPT, Collections.singletonList(lockKey), token);
+        } catch (Exception e) {
+            log.warn("unlock cache lock failed: key={} err={}", lockKey, e.getMessage());
         }
     }
 
