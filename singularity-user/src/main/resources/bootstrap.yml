@@ -3,14 +3,7 @@ spring:
     name: singularity-user
   cloud:
     nacos:
-      server-addr: localhost:8848
       discovery:
-        enabled: true
-        namespace: public
-        group: DEFAULT_GROUP
+        enabled: false
       config:
-        enabled: true
-        namespace: public
-        group: DEFAULT_GROUP
-        file-extension: yaml
-        refresh-enabled: true
+        enabled: false

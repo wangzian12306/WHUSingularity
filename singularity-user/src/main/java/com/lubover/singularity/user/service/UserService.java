@@ -24,4 +24,12 @@ public interface UserService {
     boolean recharge(Long id, BigDecimal amount);
 
     boolean deduct(Long id, BigDecimal amount);
+
+    User registerMerchant(String username, String password, String shopName, String contactName, String contactPhone, String address, String description);
+
+    List<User> getMerchants();
+
+    User updateMerchantInfo(Long id, String shopName, String contactName, String contactPhone, String address, String description, String avatar);
+
+    boolean updateMerchantStatus(Long id, Integer status);
 }

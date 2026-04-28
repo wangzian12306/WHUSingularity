@@ -8,6 +8,13 @@ public class UserView {
     private String username;
     private String nickname;
     private String role;
+    private String shopName;
+    private String contactName;
+    private String contactPhone;
+    private String address;
+    private String description;
+    private Integer status;
+    private String avatar;
 
     public static UserView from(User user) {
         UserView view = new UserView();
@@ -15,6 +22,13 @@ public class UserView {
         view.setUsername(user.getUsername());
         view.setNickname(user.getNickname());
         view.setRole(user.getRole());
+        view.setShopName(user.getShopName());
+        view.setContactName(user.getContactName());
+        view.setContactPhone(user.getContactPhone());
+        view.setAddress(user.getAddress());
+        view.setDescription(user.getDescription());
+        view.setStatus(user.getStatus());
+        view.setAvatar(user.getAvatar());
         return view;
     }
 
@@ -48,5 +62,61 @@ public class UserView {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getShopName() {
+        return shopName;
+    }
+
+    public void setShopName(String shopName) {
+        this.shopName = shopName;
+    }
+
+    public String getContactName() {
+        return contactName;
+    }
+
+    public void setContactName(String contactName) {
+        this.contactName = contactName;
+    }
+
+    public String getContactPhone() {
+        return contactPhone;
+    }
+
+    public void setContactPhone(String contactPhone) {
+        this.contactPhone = contactPhone;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Integer getStatus() {
+        return status;
+    }
+
+    public void setStatus(Integer status) {
+        this.status = status;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
     }
 }

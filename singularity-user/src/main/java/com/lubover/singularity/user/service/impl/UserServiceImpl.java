@@ -167,6 +167,90 @@ public class UserServiceImpl implements UserService {
         return userMapper.updateBalance(id, newBalance) > 0;
     }
 
+    @Override
+    @CachePut(value = CacheConfig.USER_CACHE_NAME, key = "#result.id")
+    public User registerMerchant(String username, String password, String shopName, String contactName, String contactPhone, String address, String description) {
+        validateRegisterRequest(username, password, shopName);
+
+        User existUser = userMapper.selectByUsername(username);
+        if (existUser != null) {
+            throw new BusinessException(ErrorCode.USER_USERNAME_EXISTS);
+        }
+
+        User user = new User(username, passwordEncoder.encode(password), shopName, "merchant");
+        user.setShopName(shopName);
+        user.setContactName(contactName);
+        user.setContactPhone(contactPhone);
+        user.setAddress(address);
+        user.setDescription(description);
+        user.setStatus(1);
+        user.setCreateTime(LocalDateTime.now());
+        user.setUpdateTime(LocalDateTime.now());
+
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException exception) {
+            throw new BusinessException(ErrorCode.USER_USERNAME_EXISTS);
+        }
+        return user;
+    }
+
+    @Override
+    public List<User> getMerchants() {
+        return userMapper.selectByRole("merchant");
+    }
+
+    @Override
+    @Transactional
+    @CachePut(value = CacheConfig.USER_CACHE_NAME, key = "#p0")
+    @CacheEvict(value = CacheConfig.USER_USERNAME_CACHE_NAME, allEntries = true)
+    public User updateMerchantInfo(Long id, String shopName, String contactName, String contactPhone, String address, String description, String avatar) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND, "Merchant not found");
+        }
+        if (!"merchant".equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.REQ_INVALID_PARAM, "User is not a merchant");
+        }
+
+        if (shopName != null) {
+            user.setShopName(shopName);
+        }
+        if (contactName != null) {
+            user.setContactName(contactName);
+        }
+        if (contactPhone != null) {
+            user.setContactPhone(contactPhone);
+        }
+        if (address != null) {
+            user.setAddress(address);
+        }
+        if (description != null) {
+            user.setDescription(description);
+        }
+        if (avatar != null) {
+            user.setAvatar(avatar);
+        }
+
+        userMapper.updateById(user);
+        return userMapper.selectById(id);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(value = {CacheConfig.USER_CACHE_NAME, CacheConfig.USER_USERNAME_CACHE_NAME}, allEntries = true)
+    public boolean updateMerchantStatus(Long id, Integer status) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND, "Merchant not found");
+        }
+        if (!"merchant".equals(user.getRole())) {
+            throw new BusinessException(ErrorCode.REQ_INVALID_PARAM, "User is not a merchant");
+        }
+
+        return userMapper.updateStatus(id, status) > 0;
+    }
+
     private void validateRegisterRequest(String username, String password, String nickname) {
         if (isBlank(username) || isBlank(password)) {
             throw new BusinessException(ErrorCode.REQ_INVALID_PARAM);

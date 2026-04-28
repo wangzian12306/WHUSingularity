@@ -28,6 +28,7 @@ public class AuthFilter extends OncePerRequestFilter {
     private static final String PATH_LOGOUT = "/api/user/logout";
     private static final String PATH_ADMIN_PING = "/api/user/admin/ping";
     private static final Set<String> PROTECTED_PATHS = Set.of(PATH_ME, PATH_LOGOUT, PATH_ADMIN_PING);
+    private static final Set<String> PROTECTED_PREFIXES = Set.of("/api/product/", "/api/inventory/");
 
     private final JwtProvider jwtProvider;
     private final TokenBlacklistService tokenBlacklistService;
@@ -40,7 +41,16 @@ public class AuthFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return !PROTECTED_PATHS.contains(request.getRequestURI());
+        String uri = request.getRequestURI();
+        if (PROTECTED_PATHS.contains(uri)) {
+            return false;
+        }
+        for (String prefix : PROTECTED_PREFIXES) {
+            if (uri.startsWith(prefix)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -96,12 +106,19 @@ public class AuthFilter extends OncePerRequestFilter {
         request.setAttribute(ATTR_JTI, authContext.getJti());
         request.setAttribute(ATTR_EXP, authContext.getExp());
 
-        if (PATH_ADMIN_PING.equals(request.getRequestURI()) && !"admin".equalsIgnoreCase(authContext.getRole())) {
-            writeForbidden(response, ErrorCode.AUTH_FORBIDDEN, "forbidden");
-            return;
-        }
+        AuthRequestContext.setCurrentUserId(authContext.getUserId());
+        AuthRequestContext.setCurrentRole(authContext.getRole());
 
-        filterChain.doFilter(request, response);
+        try {
+            if (PATH_ADMIN_PING.equals(request.getRequestURI()) && !"admin".equalsIgnoreCase(authContext.getRole())) {
+                writeForbidden(response, ErrorCode.AUTH_FORBIDDEN, "forbidden");
+                return;
+            }
+
+            filterChain.doFilter(request, response);
+        } finally {
+            AuthRequestContext.clear();
+        }
     }
 
     private AuthRequestContext buildAuthContext(JwtProvider.JwtClaims claims) {

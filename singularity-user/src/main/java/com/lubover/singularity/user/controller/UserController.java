@@ -172,4 +172,53 @@ public class UserController {
         result.put("message", success ? "Deduct successful" : "Deduct failed");
         return result;
     }
+
+    @PostMapping("/merchant/register")
+    public ResponseEntity<ApiResponse<UserView>> registerMerchant(@RequestBody Map<String, String> request) {
+        String username = request.get("username");
+        String password = request.get("password");
+        String shopName = request.get("shopName");
+        String contactName = request.get("contactName");
+        String contactPhone = request.get("contactPhone");
+        String address = request.get("address");
+        String description = request.get("description");
+
+        User user = userService.registerMerchant(username, password, shopName, contactName, contactPhone, address, description);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(UserView.from(user)));
+    }
+
+    @GetMapping("/merchant/list")
+    public Map<String, Object> getMerchants() {
+        List<User> merchants = userService.getMerchants();
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("data", merchants);
+        return result;
+    }
+
+    @PutMapping("/merchant/{id}/info")
+    public Map<String, Object> updateMerchantInfo(@PathVariable("id") Long id, @RequestBody Map<String, String> request) {
+        String shopName = request.get("shopName");
+        String contactName = request.get("contactName");
+        String contactPhone = request.get("contactPhone");
+        String address = request.get("address");
+        String description = request.get("description");
+        String avatar = request.get("avatar");
+
+        User user = userService.updateMerchantInfo(id, shopName, contactName, contactPhone, address, description, avatar);
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("data", user);
+        return result;
+    }
+
+    @PutMapping("/merchant/{id}/status")
+    public Map<String, Object> updateMerchantStatus(@PathVariable("id") Long id, @RequestBody Map<String, Integer> request) {
+        Integer status = request.get("status");
+        boolean success = userService.updateMerchantStatus(id, status);
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", success);
+        result.put("message", success ? "Merchant status updated successfully" : "Merchant not found");
+        return result;
+    }
 }

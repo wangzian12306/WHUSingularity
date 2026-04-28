@@ -22,5 +22,9 @@ public interface UserMapper {
 
     List<User> selectAll();
 
+    List<User> selectByRole(@Param("role") String role);
+
     int updateBalance(@Param("id") Long id, @Param("balance") BigDecimal balance);
+
+    int updateStatus(@Param("id") Long id, @Param("status") Integer status);
 }

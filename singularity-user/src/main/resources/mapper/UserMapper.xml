@@ -10,45 +10,67 @@
         <result column="nickname" property="nickname" />
         <result column="role" property="role" />
         <result column="balance" property="balance" />
+        <result column="shop_name" property="shopName" />
+        <result column="contact_name" property="contactName" />
+        <result column="contact_phone" property="contactPhone" />
+        <result column="address" property="address" />
+        <result column="description" property="description" />
+        <result column="status" property="status" />
+        <result column="avatar" property="avatar" />
         <result column="create_time" property="createTime" />
         <result column="update_time" property="updateTime" />
     </resultMap>
 
     <insert id="insert" parameterType="com.lubover.singularity.user.entity.User" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user (username, password, nickname, role, balance, create_time, update_time)
-        VALUES (#{username}, #{password}, #{nickname}, #{role}, #{balance}, #{createTime}, #{updateTime})
+        INSERT INTO "user" (username, password, nickname, role, balance, shop_name, contact_name, contact_phone, address, description, status, avatar, create_time, update_time)
+        VALUES (#{username}, #{password}, #{nickname}, #{role}, #{balance}, #{shopName}, #{contactName}, #{contactPhone}, #{address}, #{description}, #{status}, #{avatar}, #{createTime}, #{updateTime})
     </insert>
 
     <update id="updateById" parameterType="com.lubover.singularity.user.entity.User">
-        UPDATE user
+        UPDATE "user"
         <set>
             <if test="password != null">password = #{password},</if>
             <if test="nickname != null">nickname = #{nickname},</if>
             <if test="role != null">role = #{role},</if>
             <if test="balance != null">balance = #{balance},</if>
-            update_time = NOW()
+            <if test="shopName != null">shop_name = #{shopName},</if>
+            <if test="contactName != null">contact_name = #{contactName},</if>
+            <if test="contactPhone != null">contact_phone = #{contactPhone},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            update_time = CURRENT_TIMESTAMP
         </set>
         WHERE id = #{id}
     </update>
 
     <delete id="deleteById">
-        DELETE FROM user WHERE id = #{id}
+        DELETE FROM "user" WHERE id = #{id}
     </delete>
 
     <select id="selectByUsername" resultMap="BaseResultMap">
-        SELECT * FROM user WHERE username = #{username}
+        SELECT * FROM "user" WHERE username = #{username}
     </select>
 
     <select id="selectById" resultMap="BaseResultMap">
-        SELECT * FROM user WHERE id = #{id}
+        SELECT * FROM "user" WHERE id = #{id}
     </select>
 
     <select id="selectAll" resultMap="BaseResultMap">
-        SELECT * FROM user ORDER BY create_time DESC
+        SELECT * FROM "user" ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByRole" resultMap="BaseResultMap">
+        SELECT * FROM "user" WHERE role = #{role} ORDER BY create_time DESC
     </select>
 
     <update id="updateBalance">
-        UPDATE user SET balance = #{balance}, update_time = NOW() WHERE id = #{id}
+        UPDATE "user" SET balance = #{balance}, update_time = CURRENT_TIMESTAMP WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE "user" SET status = #{status}, update_time = CURRENT_TIMESTAMP WHERE id = #{id}
     </update>
 
 </mapper>
