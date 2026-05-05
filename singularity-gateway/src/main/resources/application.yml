@@ -21,6 +21,14 @@ spring:
           uri: lb://singularity-product
           predicates:
             - Path=/api/product/**
+        - id: merchant-route
+          uri: lb://singularity-merchant
+          predicates:
+            - Path=/api/merchant/**
+        - id: merchant-inventory-route
+          uri: lb://singularity-merchant
+          predicates:
+            - Path=/api/inventory/**
 
 management:
   endpoints:
