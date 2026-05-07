@@ -7,7 +7,10 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken')
+  const url = config.url ?? ''
+  const token = url.startsWith('/api/merchant')
+    ? localStorage.getItem('merchantAccessToken')
+    : localStorage.getItem('accessToken')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -18,9 +21,14 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('expiresIn')
-      window.location.href = '/login'
+      const url = error.config?.url ?? ''
+      if (url.startsWith('/api/merchant')) {
+        localStorage.removeItem('merchantAccessToken')
+        localStorage.removeItem('merchantExpiresIn')
+      } else {
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('expiresIn')
+      }
     }
     return Promise.reject(error)
   },

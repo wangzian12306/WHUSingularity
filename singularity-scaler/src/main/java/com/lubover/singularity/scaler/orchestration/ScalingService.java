@@ -6,6 +6,7 @@ import com.lubover.singularity.scaler.discovery.InstanceDiscovery;
 import com.lubover.singularity.scaler.docker.DockerCommandExecutor;
 import com.lubover.singularity.scaler.docker.DockerContainerInspector;
 import com.lubover.singularity.scaler.docker.PortAllocator;
+import com.lubover.singularity.scaler.metrics.MetricHistory;
 import com.lubover.singularity.scaler.metrics.MetricsScraper;
 import com.lubover.singularity.scaler.model.QpsSample;
 import com.lubover.singularity.scaler.model.ScaleAction;
@@ -29,6 +30,7 @@ public class ScalingService {
 
     private final InstanceDiscovery instanceDiscovery;
     private final MetricsScraper metricsScraper;
+    private final MetricHistory metricHistory;
     private final DockerContainerInspector containerInspector;
     private final PortAllocator portAllocator;
     private final DockerCommandExecutor dockerCommandExecutor;
@@ -86,12 +88,9 @@ public class ScalingService {
         log.info("Service {}: instances={}, qps={}", serviceName, currentInstances, qps);
 
         ScaleAction action = policyEvaluator.evaluate(
-                qps,
-                config.getQpsScaleUpThreshold(),
-                config.getQpsScaleDownThreshold(),
-                currentInstances,
-                config.getMinInstances(),
-                config.getMaxInstances()
+                metrics, metricHistory, serviceName,
+                currentInstances, config.getMinInstances(), config.getMaxInstances(),
+                config
         );
 
         if (action == ScaleAction.SCALE_UP) {

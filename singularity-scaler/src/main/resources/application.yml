@@ -41,8 +41,11 @@ scaler:
       port-step: 2
       min-instances: 1
       max-instances: 5
-      qps-scale-up-threshold: 100
-      qps-scale-down-threshold: 20
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      scale-down-consecutive-periods: 3
       image: maven:3.9.9-eclipse-temurin-21
       env:
         SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
@@ -60,8 +63,11 @@ scaler:
       port-step: 1
       min-instances: 1
       max-instances: 5
-      qps-scale-up-threshold: 100
-      qps-scale-down-threshold: 20
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      scale-down-consecutive-periods: 3
       image: maven:3.9.9-eclipse-temurin-21
       env:
         SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
@@ -76,8 +82,11 @@ scaler:
       port-step: 2
       min-instances: 1
       max-instances: 5
-      qps-scale-up-threshold: 100
-      qps-scale-down-threshold: 20
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      scale-down-consecutive-periods: 3
       image: maven:3.9.9-eclipse-temurin-21
       env:
         SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
@@ -93,8 +102,11 @@ scaler:
       port-step: 1
       min-instances: 1
       max-instances: 5
-      qps-scale-up-threshold: 100
-      qps-scale-down-threshold: 20
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      scale-down-consecutive-periods: 3
       image: maven:3.9.9-eclipse-temurin-21
       env:
         SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848

@@ -1,13 +1,13 @@
 # 前端技术栈
 
-> 版本：v1.0
-> 日期：2026-04-20
+> 版本：v1.1
+> 日期：2026-05-07
 
 ## 1. 基础技术栈
 
 | 类别 | 选型 | 说明 |
 |---|---|---|
-| 框架 | React 18+ TypeScript | 项目既定规划 |
+| 框架 | React 19 + TypeScript | 项目既定规划 |
 | 构建 | Vite | 快速 HMR，开箱即用的 TS 支持 |
 | 路由 | React Router v6 | SPA 路由，支持路由守卫 |
 | 请求 | axios | 拦截器处理 token 注入和 401 跳转 |
@@ -17,7 +17,7 @@
 
 ## 2. 多后端服务代理
 
-前端需同时请求 user(8090)、order(8081)、stock(8082) 三个微服务，需要解决 CORS 和路由分发。
+前端需同时请求 user(8090)、order(8081)、stock(8082) 三个微服务，需要解决 CORS 和路由分发。当前已部署 Spring Cloud Gateway（:8080）作为统一入口。
 
 ### 2.1 开发环境（Vite Proxy）
 
@@ -36,18 +36,20 @@ export default defineConfig({
 });
 ```
 
-### 2.2 生产环境（Nginx 反向代理）
+> 注：`/api/product` 与 `/api/merchant` 当前无前端页面直接消费，故未配置代理；如需调用可通过 Gateway（:8080）或单独追加代理。
 
-无网关阶段，使用 Nginx 统一入口：
+### 2.2 生产环境（Spring Cloud Gateway）
 
-```nginx
-location /api/user  { proxy_pass http://localhost:8090; }
-location /api/order { proxy_pass http://localhost:8081; }
-location /api/stock { proxy_pass http://localhost:8082; }
-location /          { root /usr/share/nginx/html; try_files $uri /index.html; }
+系统已引入 `singularity-gateway`（:8080）作为统一 API 入口，基于 Nacos 服务发现自动路由：
+
+```
+/api/user    → lb://singularity-user
+/api/order   → lb://singularity-order
+/api/stock   → lb://singularity-stock
+/api/product → lb://singularity-product
 ```
 
-> 后续若引入 API Gateway（如 Spring Cloud Gateway），前端只需指向单一网关地址。
+前端生产环境只需指向 Gateway 地址即可。
 
 ## 3. 实时数据
 
@@ -117,28 +119,14 @@ const theme = {
 
 ## 5. 测试
 
-| 类别 | 选型 | 说明 |
-|---|---|---|
-| 单元测试 | Vitest | Vite 原生集成，零配置启动 |
-| 组件测试 | React Testing Library | 测试用户行为而非实现细节 |
-| E2E 测试 | Playwright | 抢单并发场景需端到端验证 |
+| 类别 | 选型 | 说明 | 状态 |
+|---|---|---|---|
+| 单元测试 | Vitest | Vite 原生集成，零配置启动 | 未引入 |
+| 组件测试 | React Testing Library | 测试用户行为而非实现细节 | 未引入 |
+| E2E 测试 | Playwright | 抢单并发场景需端到端验证 | 未引入 |
+| WebMCP 测试 | tsx + 自定义脚本 | 验证 tools 注册与端到端调用 | 已落地 `test/webmcp.test.mjs` |
 
-### 5.1 单元测试 + 组件测试
-
-覆盖重点：
-- 登录/注册表单校验逻辑
-- Token 存储/清除/过期判断
-- 请求拦截器（token 注入、401 跳转）
-- 抢单按钮的防重复提交、倒计时禁用
-
-### 5.2 E2E 测试
-
-覆盖场景：
-- 注册 → 登录 → 抢单 → 退出 完整链路
-- 未登录访问受保护页面 → 跳转登录
-- token 过期后操作 → 弹回登录页
-
-> 测试在基础页面稳定后再补充，不阻塞首次开发。
+> 除 WebMCP 测试脚本外，其余测试框架尚未引入，计划在功能稳定后补充。
 
 ## 6. 全局机制
 
@@ -163,25 +151,18 @@ WebMCP 是**增量能力，不影响基础架构选型**。原因：
 - 常规页面交互（登录、抢单、用户中心）的人用 UI 不变
 - Agent 调用的 tool 与用户点击按钮走的是同一套前端业务逻辑
 
-### 7.3 落地计划
+### 7.3 落地状态
 
-1. 基础页面跑通后再接入 WebMCP
-2. 引入 `@mcp-b/webmcp-polyfill` 兼容非 Chrome 146 浏览器
-3. 在关键业务操作上注册 tool，例如：
+WebMCP 已集成完毕：
 
-```js
-// 示例：注册抢单 tool
-navigator.modelContext.registerTool({
-  name: "snagOrder",
-  description: "抢购指定商品的秒杀资格",
-  parameters: {
-    type: "object",
-    properties: { slotId: { type: "string", description: "商品/槽位ID" } },
-    required: ["slotId"],
-  },
-  handler: async ({ slotId }) => { /* 调用后端抢单 API */ },
-});
-```
+1. ✅ 引入 `@mcp-b/webmcp-polyfill`（`singularity-front/package.json`）
+2. ✅ 在 `src/main.tsx` 中初始化 polyfill
+3. ✅ 在 `src/webmcp/tools.ts` 注册 4 个业务 tools：
+   - `listStock` — 调用 `stockApi.list()`
+   - `snagOrder` — 调用 `orderApi.snag({ userId })`
+   - `listOrders` — 调用 `orderApi.list(params)`
+   - `getUserInfo` — 返回当前登录用户信息
+4. ✅ `Home.tsx` 页面挂载时注册/卸载 tools
 
 ### 7.4 参考资料
 

@@ -8,6 +8,7 @@ export default defineConfig({
       '/api/user': 'http://localhost:8090',
       '/api/order': 'http://localhost:8081',
       '/api/stock': 'http://localhost:8082',
+      '/api/merchant': 'http://localhost:9091',
     },
   },
 })

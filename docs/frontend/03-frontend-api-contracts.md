@@ -1,7 +1,7 @@
 # 前端 API 契约
 
-> 版本：v1.1
-> 日期：2026-04-23
+> 版本：v1.2
+> 日期：2026-05-07
 > 说明：前端需要消费的所有接口定义。标注"已就绪"的接口后端已实现；标注"待实现"的接口后端需按此契约开发。如果后端有调整，或者实际实现和文档有冲突，在这个文档的最后单开一节标注和说明
 
 ## 1. 通用约定
@@ -60,6 +60,10 @@ Authorization: Bearer <access_token>
 | singularity-user | 8090 | `/api/user` |
 | singularity-order | 8081 | `/api/order` |
 | singularity-stock | 8082 | `/api/stock` |
+| singularity-product | 8087 | `/api/product` |
+| singularity-merchant | 8091 | `/api/merchant` |
+| singularity-gateway | 8080 | `/api/*` |
+| singularity-scaler | 9090 | `/api/scaler` |
 
 ---
 
@@ -595,7 +599,83 @@ Authorization: Bearer <jwt>
 
 ---
 
-## 5. 接口状态汇总
+## 5. 商户服务
+
+> 注：商户 API 客户端已存在于 `src/api/merchant.ts`，当前前端页面未直接消费，供后续商户端页面扩展使用。
+
+### 5.1 商户注册
+
+- **Method**: `POST`
+- **Path**: `/api/merchant/register`
+- **Auth**: 否
+- **状态**: 已就绪
+
+**请求体**
+
+```json
+{
+  "username": "merchant01",
+  "password": "P@ssw0rd!",
+  "shopName": "My Shop",
+  "contactName": "John",
+  "contactPhone": "13800138000",
+  "address": "Wuhan",
+  "description": "A nice shop"
+}
+```
+
+**成功响应 201**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "username": "merchant01",
+    "shopName": "My Shop",
+    "status": 1
+  }
+}
+```
+
+### 5.2 商户登录
+
+- **Method**: `POST`
+- **Path**: `/api/merchant/login`
+- **Auth**: 否
+- **状态**: 已就绪
+
+**成功响应 200**
+
+```json
+{
+  "success": true,
+  "data": {
+    "tokenType": "Bearer",
+    "accessToken": "<jwt>",
+    "expiresIn": 7200,
+    "merchant": { ... }
+  }
+}
+```
+
+### 5.3 商户信息查询
+
+- **Method**: `GET`
+- **Path**: `/api/merchant/profile`
+- **Auth**: 是（Merchant JWT）
+- **状态**: 已就绪
+
+### 5.4 商户信息更新
+
+- **Method**: `PUT`
+- **Path**: `/api/merchant/profile`
+- **Auth**: 是（Merchant JWT）
+- **状态**: 已就绪
+
+---
+
+## 6. 接口状态汇总
 
 | 接口 | 状态 |
 |---|---|
@@ -613,35 +693,39 @@ Authorization: Bearer <jwt>
 | `GET /api/stock/list` | 已就绪 |
 | `POST /api/stock/init` | 已就绪 |
 | `GET /api/stock/change-log` | 已就绪 |
+| `POST /api/merchant/register` | 已就绪 |
+| `POST /api/merchant/login` | 已就绪 |
+| `GET /api/merchant/profile` | 已就绪 |
+| `PUT /api/merchant/profile` | 已就绪 |
 
 ---
 
-## 6. 与后端实现不一致之处
+## 7. 与后端实现不一致之处
 
 > 本节记录前端契约与后端实际实现的差异，供前端兼容参考。
 
-### 6.1 响应结构
+### 7.1 响应结构
 
 - **契约约定**：失败响应为 `{ "success": false, "error": { "code": "...", "message": "..." } }`
 - **后端实际**：失败响应为 `{ "success": false, "message": "..." }`（无 `error` 嵌套，无错误码）
 
-### 6.2 订单状态类型
+### 7.2 订单状态类型
 
 - **契约约定**：`status` 为 `number`（0/1/2）
 - **后端实际**：`status` 为 `string`（`CREATED`/`PAID`/`CANCELLED`），当前仅有 `CREATED`
 
-### 6.3 抢单响应
+### 7.3 抢单响应
 
 - **契约约定**：返回 `{ "orderId": "...", "status": 0 }`
 - **后端实际**：仅返回 `{ "orderId": "..." }`，不含 `status` 字段
 
-### 6.4 订单列表字段名
+### 7.4 订单列表字段名
 
 - **契约约定**：用户 ID 字段为 `actorId`
 - **后端实际**：字段名为 `userId`
 - **补充**：订单实体额外包含 `productId` 和 `updateTime` 字段
 
-### 6.5 分页约定
+### 7.5 分页约定
 
 - **契约约定**：`page` 从 1 开始，默认 20 条/页
 - **后端实际**：`page` 从 0 开始，默认 10 条/页

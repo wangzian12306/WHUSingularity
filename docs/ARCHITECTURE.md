@@ -82,7 +82,7 @@ flowchart LR
 - `singularity-merchant`
   Self-contained merchant management service. Provides merchant registration/login (independent JWT auth), product catalog management, and inventory tracking with change logs. Operates independently without inter-service calls (default H2 database, optional MySQL via local profile).
 - `singularity-scaler`
-  Auto-scaler service that monitors QPS metrics from core services via Prometheus actuator endpoints, evaluates scaling policies, and manages Docker container lifecycle (start/remove) based on thresholds and cooldown periods.
+  Auto-scaler service that monitors CPU/memory/QPS metrics from all healthy instances of core services via Prometheus actuator endpoints, uses resource utilization thresholds with sliding window smoothing for scaling decisions, and manages Docker container lifecycle (start/remove) based on cooldown periods.
 
 ## Key Interaction Patterns
 
