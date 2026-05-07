@@ -4,11 +4,11 @@
 
 当前系统中各微服务的实例数量在 `docker-compose.backend.yml` 中预定义，无法根据运行时负载动态调整。虽然已有 PowerShell 伸缩脚本（`deploy/scale-instance.ps1`）支持手动启停容器，但仍需人工判断何时触发。
 
-目标：实现一个独立的 Scaler 服务，持续监控各服务指标（如 QPS），当指标超过/低于阈值时自动启停容器实例。
+目标：实现一个独立的 Scaler 服务，持续监控各服务资源指标（CPU / JVM 堆内存 / QPS），当资源利用率超过/低于阈值时自动启停容器实例。
 
 ## 最终目标
 
-一个 Spring Boot 微服务（`singularity-scaler`），周期性采集各服务 Prometheus 指标，在 QPS 超阈值时自动启停 Docker 容器实例，并提供 REST API 查看状态和手动触发。
+一个 Spring Boot 微服务（`singularity-scaler`），周期性采集各服务 Prometheus 指标（QPS、CPU 使用率、JVM 堆内存使用率），基于资源利用率百分比 + 滑动窗口平滑决策，自动启停 Docker 容器实例，并提供 REST API 查看状态和手动触发。
 
 ## 可行性分析
 
@@ -74,17 +74,21 @@
 
 1. 遍历所有配置的服务
 2. 检查冷却状态（上次操作后 120s 内不重复操作同一服务）
-3. 通过 Nacos 获取该服务的健康实例数
-4. 从任一实例 HTTP GET `/actuator/prometheus`，解析指标文本
-5. 将指标值与策略阈值比较
-6. 超过上限 → `docker run` 新实例；低于下限 → `docker rm` 最高序号实例
-7. 记录操作日志 + 重置冷却计时
+3. 通过 Nacos 获取该服务的所有健康实例
+4. 遍历所有健康实例，HTTP GET `/actuator/prometheus`，采集 CPU 使用率、JVM 堆内存使用率、QPS
+5. 计算集群平均资源利用率，记录到滑动窗口（最近 10 个周期）
+6. 将当前指标与策略阈值比较：扩容即时触发（CPU 或内存超阈值），缩容需连续 3 个周期低于阈值
+7. 超过上限 → `docker run` 新实例；低于下限 → `docker rm` 最高序号实例
+8. 记录操作日志 + 重置冷却计时
 
 ### 指标采集方式
 
-不部署 Prometheus Server。直接 HTTP 抓取各服务的 `/actuator/prometheus` 端点，在 Scaler 内解析。
+不部署 Prometheus Server。直接 HTTP 抓取各服务所有健康实例的 `/actuator/prometheus` 端点，在 Scaler 内解析并取集群平均。
 
-主要指标：`http_server_requests_seconds_count` — 按服务 URI 前缀聚合，计算两次采集间的 rate 作为 QPS。
+主要指标：
+- `process_cpu_usage` — 进程 CPU 使用率（0.0~1.0）
+- `jvm_memory_used_bytes` / `jvm_memory_max_bytes`（area=heap） — JVM 堆内存使用率
+- `http_server_requests_seconds_count` — 计算两次采集间的 rate 作为 QPS
 
 ### 容器启停
 
@@ -210,7 +214,6 @@
 
 - 不改动 `singularity-core` 框架代码（所有服务无状态，Slot 模型不受实例数影响）
 - 不实现 Prometheus Server / Grafana 可视化（直连 actuator 端点足够）
-- 不实现基于 CPU/内存的伸缩（QPS 作为唯一指标，后续可扩展）
 - 不实现优雅停机（`docker rm -f` 强制移除，Nacos 心跳超时自动注销）
 - 不重构现有 PowerShell 脚本（Docker 命令在 Java 中重新实现）
 - 不为现有服务添加自定义 MeterBinder / HealthIndicator（auto-config 指标已够用）
