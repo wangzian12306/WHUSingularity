@@ -12,5 +12,6 @@ import java.util.List;
 public class ScalerProperties {
     private int intervalSeconds = 15;
     private int cooldownSeconds = 120;
+    private int historySize = 10;
     private List<ServiceConfig> services;
 }
