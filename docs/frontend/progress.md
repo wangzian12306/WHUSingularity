@@ -1,6 +1,6 @@
 # 前端开发进度
 
-> 更新日期：2026-05-07（Phase 1/2/3 全部完成）
+> 更新日期：2026-05-07（Phase 1/2/3 全部完成，商户注册登录已完成）
 >
 > 详细任务卡见 [`0422-phase2-phase3-task-cards.md`](0422-phase2-phase3-task-cards.md)
 
@@ -11,16 +11,17 @@
 | 模块 | 内容 | 关键文件 |
 |---|---|---|
 | 项目脚手架 | React + TS + Vite + Ant Design + React Router v6 | `package.json`, `vite.config.ts` |
-| Axios 客户端 | 请求/响应拦截器、token 注入、401 自动跳转 | `api/client.ts` |
+| Axios 客户端 | 请求/响应拦截器、双 token 注入（user/merchant）、401 静默清理 | `api/client.ts` |
 | 类型定义 | User、Login/Register 请求响应、ApiResponse、UserDetail、Stock、Order 等 | `api/types.ts` |
 | User API 客户端 | login、register、logout、me、list、update、remove、recharge | `api/user.ts` |
 | Stock API 客户端 | getStock、list、init、getChangeLog | `api/stock.ts` |
 | Order API 客户端 | snag、list | `api/order.ts` |
-| 认证上下文 | AuthContext + 登录态管理 | `contexts/AuthContext.tsx` |
-| 路由守卫 | ProtectedRoute，未登录重定向 /login；AdminRoute，非 admin 重定向 / | `components/AuthGuard.tsx`, `components/AdminGuard.tsx` |
+| Merchant API 客户端 | login、register、logout、profile、updateProfile | `api/merchant.ts` |
+| 认证上下文 | AuthContext（用户） + MerchantAuthContext（商户） + 双 token 隔离 | `contexts/AuthContext.tsx`, `contexts/MerchantAuthContext.tsx` |
+| 路由守卫 | ProtectedRoute（用户/商户双认证通过），AdminRoute，非 admin 重定向 / | `components/AuthGuard.tsx`, `components/AdminGuard.tsx` |
 | 全局布局 | AppLayout 顶栏（用户名、管理入口、退出）、嵌套路由 | `components/AppLayout.tsx`, `App.tsx` |
-| 登录页 | 表单校验、错误提示、登录后跳转 | `pages/Login.tsx` |
-| 注册页 | 表单校验（用户名 4-32、密码 8-64）、注册后跳转登录 | `pages/Register.tsx` |
+| 登录页 | Tab 切换用户/商户登录，双认证上下文 | `pages/Login.tsx` |
+| 注册页 | Tab 切换用户/商户注册，商户额外字段（shopName 等） | `pages/Register.tsx` |
 | Admin 用户管理 | 用户列表 Table + 编辑 Modal + 删除 Popconfirm | `pages/admin/AdminUserList.tsx` |
 | 秒杀主页 `/` | 商品 Card 网格、3s 库存轮询、抢单按钮防重复、订单结果轮询展示 | `pages/Home.tsx` |
 | 用户中心 `/user` | 用户信息卡片、余额充值 Modal、订单列表分页 Table | `pages/UserCenter.tsx` |
@@ -28,11 +29,19 @@
 | Admin 订单管理 `/admin/orders` | 全部订单列表 Table、userId + status 筛选、分页 | `pages/admin/AdminOrderList.tsx` |
 | WHU 主题 | Ant Design ConfigProvider 配色 | `App.tsx` |
 | WebMCP 集成 | `@mcp-b/webmcp-polyfill` 初始化，4 个业务 tools 注册 | `webmcp/tools.ts`, `main.tsx`, `Home.tsx` |
-| Vite 代理 | `/api/user` → 8090, `/api/order` → 8081, `/api/stock` → 8082 | `vite.config.ts` |
+| Vite 代理 | `/api/user` → 8090, `/api/order` → 8081, `/api/stock` → 8082, `/api/merchant` → 9091 | `vite.config.ts` |
+| 商户独立 JWT | MerchantAuthContext，merchantAccessToken / merchantExpiresIn 独立存储 | `contexts/MerchantAuthContext.tsx` |
 
 ### 1.2 待实现
 
-无
+| # | 任务 | 说明 | 优先级 |
+|---|---|---|---|
+| 1 | **商户专属页面与路由** | 商户登录后需跳转至商户中心（而非用户首页），AppLayout 需区分用户/商户导航 | 高 |
+| 2 | **商户中心页** `/merchant` | 商户信息卡片、店铺信息编辑、头像设置 | 高 |
+| 3 | **商户商品管理** `/merchant/products` | 商品 CRUD（复用 product API） | 高 |
+| 4 | **商户库存管理** `/merchant/stock` | 查看/管理自己店铺的商品库存 | 中 |
+| 5 | **商户订单查看** `/merchant/orders` | 查看与商户商品相关的订单列表 | 中 |
+| 6 | **docker-compose 补充 merchant 服务** | 当前 merchant 未纳入 docker-compose.backend.yml，需添加 | 低 |
 
 ### 1.3 前端适配后端实际行为（2026-04-23）
 
@@ -71,6 +80,15 @@
 |---|---|---|
 | 4 | **秒杀主页** `/` | 已完成 |
 | 5 | **用户中心** `/user` | 已完成 |
+
+### Phase 4 — 商户端（后端接口已就绪，待前端实现）
+
+| # | 任务 | 状态 |
+|---|---|---|
+| 9 | **商户注册/登录 Tab 切换** | 已完成 |
+| 10 | **商户专属页面与路由** | 待实现 |
+| 11 | **商户中心页** `/merchant` | 待实现 |
+| 12 | **商户商品管理** `/merchant/products` | 待实现 |
 
 ### Phase 3 — 管理 + 增强（低优先级，后端接口已就绪）
 
