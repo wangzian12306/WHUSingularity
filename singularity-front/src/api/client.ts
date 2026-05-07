@@ -29,7 +29,6 @@ api.interceptors.response.use(
         localStorage.removeItem('accessToken')
         localStorage.removeItem('expiresIn')
       }
-      window.location.href = '/login'
     }
     return Promise.reject(error)
   },
