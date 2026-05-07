@@ -51,4 +51,22 @@ public class PrometheusTextParser {
         }
         return values.values().stream().mapToDouble(Double::doubleValue).sum();
     }
+
+    public double extractByLabelFilter(Map<String, Map<String, Double>> metrics, String metricName,
+                                        String labelKey, String labelValue) {
+        Map<String, Double> values = metrics.get(metricName);
+        if (values == null || values.isEmpty()) {
+            return 0.0;
+        }
+        if (labelKey == null) {
+            return values.values().stream().mapToDouble(Double::doubleValue).sum();
+        }
+        double sum = 0.0;
+        for (Map.Entry<String, Double> entry : values.entrySet()) {
+            if (entry.getKey().contains(labelKey + "=" + labelValue)) {
+                sum += entry.getValue();
+            }
+        }
+        return sum;
+    }
 }
