@@ -8,12 +8,10 @@ import urllib.request
 from random import randint
 
 
-USER_BASE_URL = os.getenv("USER_API_BASE_URL", os.getenv("API_BASE_URL", "http://localhost:8090"))
-STOCK_BASE_URL = os.getenv("STOCK_API_BASE_URL", "http://localhost:8082")
-ORDER_BASE_URL = os.getenv("ORDER_API_BASE_URL", "http://localhost:8081")
-USER_API = f"{USER_BASE_URL}/api/user"
-STOCK_API = f"{STOCK_BASE_URL}/api/stock/slots"
-ORDER_API = f"{ORDER_BASE_URL}/api/order"
+_GATEWAY = os.getenv("GATEWAY_BASE_URL") or os.getenv("API_BASE_URL") or "http://localhost:8080"
+USER_API = f"{os.getenv('USER_API_BASE_URL', _GATEWAY)}/api/user"
+STOCK_API = f"{os.getenv('STOCK_API_BASE_URL', _GATEWAY)}/api/stock/slots"
+ORDER_API = f"{os.getenv('ORDER_API_BASE_URL', _GATEWAY)}/api/order"
 
 
 def random_user():

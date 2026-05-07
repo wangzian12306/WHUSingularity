@@ -4,6 +4,7 @@ import com.lubover.singularity.scaler.config.ScalerProperties;
 import com.lubover.singularity.scaler.config.ServiceConfig;
 import com.lubover.singularity.scaler.discovery.InstanceDiscovery;
 import com.lubover.singularity.scaler.model.QpsSample;
+import com.lubover.singularity.scaler.model.ResourceMetrics;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -128,5 +129,57 @@ public class MetricsScraper {
                 serviceName, qps, totalCount, delta, seconds, ok, instances.size());
         lastReliableQpsByService.put(serviceName, qps);
         return QpsSample.reliable(qps);
+    }
+
+    /**
+     * 从各实例 actuator/prometheus 汇总 CPU / 堆内存占比（0~1），供 {@link com.lubover.singularity.scaler.policy.PolicyEvaluator} 使用。
+     * 与 {@link #sampleQps} 相同实例列表；任一副本拉取失败则返回 empty。
+     */
+    public java.util.Optional<ResourceMetrics> sampleResourceMetrics(String serviceName, double policyQps) {
+        List<Instance> instances = instanceDiscovery.getHealthyInstances(serviceName);
+        if (instances.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        double cpuSum = 0.0;
+        double memRatioSum = 0.0;
+        int ok = 0;
+        for (Instance instance : instances) {
+            String url = String.format("http://%s:%d/actuator/prometheus", instance.getIp(), instance.getPort());
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(Duration.ofSeconds(5))
+                        .GET()
+                        .build();
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() != 200) {
+                    log.warn("resource scrape: {} status {}", url, response.statusCode());
+                    continue;
+                }
+                var metrics = prometheusTextParser.parse(response.body());
+                double cpu = prometheusTextParser.extractRate(metrics, "process_cpu_usage");
+                if (cpu <= 0) {
+                    cpu = prometheusTextParser.extractRate(metrics, "system_cpu_usage");
+                }
+                double used = prometheusTextParser.extractRate(metrics, "jvm_memory_used_bytes");
+                double max = prometheusTextParser.extractRate(metrics, "jvm_memory_max_bytes");
+                double memRatio = max > 0 ? Math.min(1.0, used / max) : 0.0;
+                cpuSum += Math.min(1.0, Math.max(0.0, cpu));
+                memRatioSum += memRatio;
+                ok++;
+            } catch (Exception e) {
+                log.warn("resource scrape failed {}: {}", url, e.getMessage());
+            }
+        }
+        if (ok == 0 || ok < instances.size()) {
+            log.warn("resource scrape incomplete for {} ({}/{} instances)", serviceName, ok, instances.size());
+            return java.util.Optional.empty();
+        }
+        double n = ok;
+        return java.util.Optional.of(new ResourceMetrics(
+                policyQps,
+                cpuSum / n,
+                memRatioSum / n
+        ));
     }
 }
