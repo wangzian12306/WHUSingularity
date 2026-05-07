@@ -50,10 +50,13 @@ if ($RemoveNamedVolumes -eq 'all') {
 Write-Host '==> [3/4] 删除名称含 singularity 的旧容器（解除与其它项目的 container_name 冲突）...' -ForegroundColor Cyan
 docker ps -aq -f "name=singularity" | ForEach-Object { docker rm -f $_ 2>$null }
 
-Write-Host '==> [4/4] 重建并启动（order=3 副本 + front build）...' -ForegroundColor Cyan
+Write-Host '==> [4/4] 重建并启动（order=3，user/stock=1；front build）...' -ForegroundColor Cyan
 Push-Location $repoRoot
 try {
-    docker compose -f $composeFile up -d --build --force-recreate --remove-orphans --scale singularity-order=3
+    docker compose -f $composeFile up -d --build --force-recreate --remove-orphans `
+        --scale singularity-order=3 `
+        --scale singularity-user=1 `
+        --scale singularity-stock=1
     if ($LASTEXITCODE -ne 0) {
         Write-Error 'docker compose up failed'
         exit $LASTEXITCODE

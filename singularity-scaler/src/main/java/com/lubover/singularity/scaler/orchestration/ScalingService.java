@@ -5,10 +5,10 @@ import com.lubover.singularity.scaler.config.ServiceConfig;
 import com.lubover.singularity.scaler.discovery.InstanceDiscovery;
 import com.lubover.singularity.scaler.docker.DockerCommandExecutor;
 import com.lubover.singularity.scaler.docker.DockerContainerInspector;
-import com.lubover.singularity.scaler.docker.PortAllocator;
 import com.lubover.singularity.scaler.metrics.MetricHistory;
 import com.lubover.singularity.scaler.metrics.MetricsScraper;
 import com.lubover.singularity.scaler.model.QpsSample;
+import com.lubover.singularity.scaler.model.ResourceMetrics;
 import com.lubover.singularity.scaler.model.ScaleAction;
 import com.lubover.singularity.scaler.model.ScaleResult;
 import com.lubover.singularity.scaler.model.ServiceState;
@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -32,7 +34,6 @@ public class ScalingService {
     private final MetricsScraper metricsScraper;
     private final MetricHistory metricHistory;
     private final DockerContainerInspector containerInspector;
-    private final PortAllocator portAllocator;
     private final DockerCommandExecutor dockerCommandExecutor;
     private final PolicyEvaluator policyEvaluator;
     private final CooldownManager cooldownManager;
@@ -40,6 +41,12 @@ public class ScalingService {
 
     /** 缩容去抖：key=serviceName，值为已连续命中「策略建议缩容」的次数 */
     private final Map<String, Integer> consecutiveScaleDownSignals = new ConcurrentHashMap<>();
+
+    /** 上一轮成功采样的 docker CPU（0~1），用于暴增检测；与 {@link ScalerProperties#getIntervalSeconds()} 节奏对齐 */
+    private final Map<String, DockerCpuSnapshot> lastDockerCpuByService = new ConcurrentHashMap<>();
+
+    private record DockerCpuSnapshot(double cpuUsage, long timeMillis) {
+    }
 
     public List<ServiceState> getAllServiceStates() {
         List<ServiceState> states = new ArrayList<>();
@@ -72,30 +79,43 @@ public class ScalingService {
             return new ScaleResult(serviceName, ScaleAction.NONE, "cooldown active");
         }
 
-        int currentInstances = dockerInstanceCount(config);
-        if (currentInstances == 0) {
-            currentInstances = instanceDiscovery.getHealthyInstances(serviceName).size();
+        int counted = dockerInstanceCount(config);
+        if (counted == 0) {
+            counted = instanceDiscovery.getHealthyInstances(serviceName).size();
         }
+        final int currentInstances = counted;
+
+        String composeProject = scalerProperties.getComposeProject();
+        String composeSvc = composeServiceName(config);
+        int graceSec = Math.max(0, scalerProperties.getDockerStatsGraceSecondsAfterStart());
+        OptionalLong youngest = containerInspector.youngestReplicaUptimeSeconds(composeProject, composeSvc);
+        final Optional<ResourceMetrics> dockerRm = sampleDockerIfPastGrace(
+                serviceName, composeProject, composeSvc, graceSec, youngest);
 
         QpsSample qpsSample = metricsScraper.sampleQps(serviceName);
-        if (!qpsSample.reliableForScaling()) {
-            consecutiveScaleDownSignals.remove(serviceName);
-            log.info("Service {}: instances={}, qps=unreliable (display={}), skip scale decision",
-                    serviceName, currentInstances, qpsSample.displayQps());
-            return new ScaleResult(serviceName, ScaleAction.NONE, "metrics unavailable or baseline reset");
-        }
-        double qps = qpsSample.policyQps().doubleValue();
-        log.info("Service {}: instances={}, qps={}", serviceName, currentInstances, qps);
+        Optional<ResourceMetrics> jvmRm = Optional.empty();
+        try {
+            if (qpsSample.reliableForScaling()) {
+                double qps = qpsSample.policyQps().doubleValue();
+                log.info("Service {}: instances={}, qps={}", serviceName, currentInstances, qps);
+                jvmRm = metricsScraper.sampleResourceMetrics(serviceName, qps);
+            } else {
+                log.info("Service {}: instances={}, qps=unreliable (display={}); scale-up may use docker only",
+                        serviceName, currentInstances, qpsSample.displayQps());
+            }
 
-        ScaleAction action = policyEvaluator.evaluate(
-                metrics, metricHistory, serviceName,
-                currentInstances, config.getMinInstances(), config.getMaxInstances(),
-                config
-        );
+            boolean upFromDockerSurge = currentInstances < config.getMaxInstances()
+                    && dockerRm.filter(d -> isDockerCpuSurge(serviceName, d)).isPresent();
+            boolean upFromDockerAbs = dockerRm
+                    .filter(d -> policyEvaluator.shouldScaleUp(d, currentInstances, config.getMaxInstances(), config))
+                    .isPresent();
+            boolean upFromDocker = upFromDockerAbs || upFromDockerSurge;
+            boolean upFromJvm = jvmRm
+                    .filter(j -> policyEvaluator.shouldScaleUp(j, currentInstances, config.getMaxInstances(), config))
+                    .isPresent();
 
-        if (action == ScaleAction.SCALE_UP) {
-            consecutiveScaleDownSignals.remove(serviceName);
-            if (isComposeScale(config)) {
+            if (upFromDocker || upFromJvm) {
+                consecutiveScaleDownSignals.remove(serviceName);
                 int next = currentInstances + 1;
                 if (next > config.getMaxInstances()) {
                     return new ScaleResult(serviceName, ScaleAction.NONE, "max instances reached");
@@ -103,31 +123,44 @@ public class ScalingService {
                 dockerCommandExecutor.scaleComposeService(
                         scalerProperties.getComposeFile(),
                         scalerProperties.getComposeProject(),
-                        composeServiceName(config),
+                        composeSvc,
                         next);
                 cooldownManager.recordAction(serviceName);
+                if (jvmRm.isPresent()) {
+                    metricHistory.record(serviceName, jvmRm.get());
+                }
+                String trigger = buildScaleUpTrigger(upFromDockerAbs, upFromDockerSurge, upFromJvm);
                 return new ScaleResult(serviceName, ScaleAction.SCALE_UP,
-                        "compose scale " + composeServiceName(config) + "=" + next);
+                        "compose scale " + composeSvc + "=" + next + " (" + trigger + ")");
             }
-            int newIndex = containerInspector.getMaxIndex(serviceName) + 1;
-            int port = portAllocator.allocatePort(serviceName, config.getBasePort(), config.getPortStep());
-            dockerCommandExecutor.startInstance(config, newIndex, port);
-            cooldownManager.recordAction(serviceName);
-            return new ScaleResult(serviceName, ScaleAction.SCALE_UP,
-                    "scaled up to index " + newIndex + " on port " + port);
-        }
 
-        if (action == ScaleAction.SCALE_DOWN) {
-            int need = Math.max(1, scalerProperties.getScaleDownMinConsecutivePolls());
-            int confirmed = consecutiveScaleDownSignals.merge(serviceName, 1, Integer::sum);
-            if (confirmed < need) {
-                log.info("Service {}: scale-down debounce {}/{} (qps={}, instances={})",
-                        serviceName, confirmed, need, qps, currentInstances);
+            if (!qpsSample.reliableForScaling()) {
+                consecutiveScaleDownSignals.remove(serviceName);
                 return new ScaleResult(serviceName, ScaleAction.NONE,
-                        "scale-down pending confirmation " + confirmed + "/" + need);
+                        "metrics unavailable or baseline reset; scale-down skipped");
             }
-            consecutiveScaleDownSignals.remove(serviceName);
-            if (isComposeScale(config)) {
+
+            if (jvmRm.isEmpty()) {
+                consecutiveScaleDownSignals.remove(serviceName);
+                return new ScaleResult(serviceName, ScaleAction.NONE, "resource metrics unavailable (prometheus scrape)");
+            }
+
+            ResourceMetrics currentJvm = jvmRm.get();
+            ScaleAction action = policyEvaluator.evaluateScaleDown(
+                    metricHistory, serviceName, currentInstances, config.getMinInstances(), config);
+            metricHistory.record(serviceName, currentJvm);
+
+            if (action == ScaleAction.SCALE_DOWN) {
+                double qps = qpsSample.policyQps().doubleValue();
+                int need = Math.max(1, scalerProperties.getScaleDownMinConsecutivePolls());
+                int confirmed = consecutiveScaleDownSignals.merge(serviceName, 1, Integer::sum);
+                if (confirmed < need) {
+                    log.info("Service {}: scale-down debounce {}/{} (qps={}, instances={})",
+                            serviceName, confirmed, need, qps, currentInstances);
+                    return new ScaleResult(serviceName, ScaleAction.NONE,
+                            "scale-down pending confirmation " + confirmed + "/" + need);
+                }
+                consecutiveScaleDownSignals.remove(serviceName);
                 int next = currentInstances - 1;
                 if (next < config.getMinInstances()) {
                     return new ScaleResult(serviceName, ScaleAction.NONE, "min instances reached");
@@ -135,24 +168,19 @@ public class ScalingService {
                 dockerCommandExecutor.scaleComposeService(
                         scalerProperties.getComposeFile(),
                         scalerProperties.getComposeProject(),
-                        composeServiceName(config),
+                        composeSvc,
                         next);
                 cooldownManager.recordAction(serviceName);
                 return new ScaleResult(serviceName, ScaleAction.SCALE_DOWN,
-                        "compose scale " + composeServiceName(config) + "=" + next);
+                        "compose scale " + composeSvc + "=" + next);
             }
-            int maxIndex = containerInspector.getMaxIndex(serviceName);
-            if (maxIndex >= 0) {
-                String containerName = serviceName + "-" + maxIndex;
-                dockerCommandExecutor.removeInstance(containerName);
-                cooldownManager.recordAction(serviceName);
-                return new ScaleResult(serviceName, ScaleAction.SCALE_DOWN,
-                        "removed container " + containerName);
-            }
-        }
 
-        consecutiveScaleDownSignals.remove(serviceName);
-        return new ScaleResult(serviceName, ScaleAction.NONE, "metric within threshold");
+            consecutiveScaleDownSignals.remove(serviceName);
+            return new ScaleResult(serviceName, ScaleAction.NONE, "metric within threshold");
+        } finally {
+            dockerRm.ifPresent(d -> lastDockerCpuByService.put(
+                    serviceName, new DockerCpuSnapshot(d.getCpuUsage(), System.currentTimeMillis())));
+        }
     }
 
     public ScaleResult manualScale(String serviceName, ScaleAction action) {
@@ -166,69 +194,100 @@ public class ScalingService {
 
         if (action == ScaleAction.SCALE_UP) {
             consecutiveScaleDownSignals.remove(serviceName);
-            if (isComposeScale(config)) {
-                int current = dockerInstanceCount(config);
-                int next = current + 1;
-                if (next > config.getMaxInstances()) {
-                    return new ScaleResult(serviceName, ScaleAction.NONE, "max instances reached");
-                }
-                dockerCommandExecutor.scaleComposeService(
-                        scalerProperties.getComposeFile(),
-                        scalerProperties.getComposeProject(),
-                        composeServiceName(config),
-                        next);
-                cooldownManager.recordAction(serviceName);
-                return new ScaleResult(serviceName, ScaleAction.SCALE_UP,
-                        "compose scale " + composeServiceName(config) + "=" + next);
-            }
-            int newIndex = containerInspector.getMaxIndex(serviceName) + 1;
-            if (newIndex >= config.getMaxInstances()) {
+            int current = dockerInstanceCount(config);
+            int next = current + 1;
+            if (next > config.getMaxInstances()) {
                 return new ScaleResult(serviceName, ScaleAction.NONE, "max instances reached");
             }
-            int port = portAllocator.allocatePort(serviceName, config.getBasePort(), config.getPortStep());
-            dockerCommandExecutor.startInstance(config, newIndex, port);
+            dockerCommandExecutor.scaleComposeService(
+                    scalerProperties.getComposeFile(),
+                    scalerProperties.getComposeProject(),
+                    composeServiceName(config),
+                    next);
             cooldownManager.recordAction(serviceName);
             return new ScaleResult(serviceName, ScaleAction.SCALE_UP,
-                    "scaled up to index " + newIndex + " on port " + port);
+                    "compose scale " + composeServiceName(config) + "=" + next);
         }
 
         if (action == ScaleAction.SCALE_DOWN) {
             consecutiveScaleDownSignals.remove(serviceName);
-            if (isComposeScale(config)) {
-                int current = dockerInstanceCount(config);
-                int next = current - 1;
-                if (current <= config.getMinInstances()) {
-                    return new ScaleResult(serviceName, ScaleAction.NONE, "min instances reached");
-                }
-                dockerCommandExecutor.scaleComposeService(
-                        scalerProperties.getComposeFile(),
-                        scalerProperties.getComposeProject(),
-                        composeServiceName(config),
-                        next);
-                cooldownManager.recordAction(serviceName);
-                return new ScaleResult(serviceName, ScaleAction.SCALE_DOWN,
-                        "compose scale " + composeServiceName(config) + "=" + next);
-            }
-            int maxIndex = containerInspector.getMaxIndex(serviceName);
-            if (maxIndex < 0) {
-                return new ScaleResult(serviceName, ScaleAction.NONE, "no instances to remove");
-            }
-            int currentCount = containerInspector.getContainerNamesForService(serviceName).size();
-            if (currentCount <= config.getMinInstances()) {
+            int current = dockerInstanceCount(config);
+            int next = current - 1;
+            if (current <= config.getMinInstances()) {
                 return new ScaleResult(serviceName, ScaleAction.NONE, "min instances reached");
             }
-            String containerName = serviceName + "-" + maxIndex;
-            dockerCommandExecutor.removeInstance(containerName);
+            dockerCommandExecutor.scaleComposeService(
+                    scalerProperties.getComposeFile(),
+                    scalerProperties.getComposeProject(),
+                    composeServiceName(config),
+                    next);
             cooldownManager.recordAction(serviceName);
             return new ScaleResult(serviceName, ScaleAction.SCALE_DOWN,
-                    "removed container " + containerName);
+                    "compose scale " + composeServiceName(config) + "=" + next);
         }
 
         return new ScaleResult(serviceName, ScaleAction.NONE, "no action");
     }
 
-    private boolean isComposeScale(ServiceConfig config) {
-        return config.getScaleMode() != null && "compose".equalsIgnoreCase(config.getScaleMode().trim());
+    private Optional<ResourceMetrics> sampleDockerIfPastGrace(
+            String serviceName,
+            String composeProject,
+            String composeSvc,
+            int graceSec,
+            OptionalLong youngest) {
+        if (youngest.isPresent() && youngest.getAsLong() >= graceSec) {
+            Optional<ResourceMetrics> sampled =
+                    containerInspector.sampleComposeServiceDockerStats(composeProject, composeSvc);
+            sampled.ifPresent(d -> log.info("Service {}: docker stats cpu={} mem={} (0~1), youngest uptime={}s",
+                    serviceName, d.getCpuUsage(), d.getMemoryUsage(), youngest.getAsLong()));
+            return sampled;
+        }
+        if (youngest.isPresent()) {
+            log.info("Service {}: skip docker stats for scale-up, youngest replica uptime {}s < grace {}s",
+                    serviceName, youngest.getAsLong(), graceSec);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * 与上一轮 scaler 采到的 docker CPU（0~1）比较：短时拉升或 idle→高负载则扩容（仍受副本上限与 cooldown 约束）。
+     */
+    private boolean isDockerCpuSurge(String serviceName, ResourceMetrics current) {
+        DockerCpuSnapshot prev = lastDockerCpuByService.get(serviceName);
+        long now = System.currentTimeMillis();
+        if (prev == null) {
+            return false;
+        }
+        double gapSec = (now - prev.timeMillis()) / 1000.0;
+        int maxGap = Math.max(20, scalerProperties.getDockerCpuSurgeMaxPollGapSeconds());
+        if (gapSec > maxGap) {
+            return false;
+        }
+        double delta = current.getCpuUsage() - prev.cpuUsage();
+        boolean bigDelta = delta >= scalerProperties.getDockerCpuSurgeDeltaThreshold();
+        boolean idleToLoad = prev.cpuUsage() <= scalerProperties.getDockerCpuSurgeLowBaseline()
+                && current.getCpuUsage() >= scalerProperties.getDockerCpuSurgeHighWater();
+        if (bigDelta || idleToLoad) {
+            log.warn(
+                    "Service {}: docker CPU surge prevCpu={} currCpu={} delta={} gap={}s bigDelta={} idleToLoad={}",
+                    serviceName, prev.cpuUsage(), current.getCpuUsage(), delta, gapSec, bigDelta, idleToLoad);
+            return true;
+        }
+        return false;
+    }
+
+    private static String buildScaleUpTrigger(boolean dockerAbs, boolean dockerSurge, boolean jvm) {
+        List<String> parts = new ArrayList<>(3);
+        if (dockerAbs) {
+            parts.add("docker");
+        }
+        if (dockerSurge) {
+            parts.add("surge");
+        }
+        if (jvm) {
+            parts.add("jvm");
+        }
+        return String.join("+", parts);
     }
 
     private String composeServiceName(ServiceConfig config) {
@@ -239,11 +298,8 @@ public class ScalingService {
     }
 
     private int dockerInstanceCount(ServiceConfig config) {
-        if (isComposeScale(config)) {
-            return containerInspector.countComposeReplicas(
-                    scalerProperties.getComposeProject(),
-                    composeServiceName(config));
-        }
-        return containerInspector.getContainerNamesForService(config.getName()).size();
+        return containerInspector.countComposeReplicas(
+                scalerProperties.getComposeProject(),
+                composeServiceName(config));
     }
 }

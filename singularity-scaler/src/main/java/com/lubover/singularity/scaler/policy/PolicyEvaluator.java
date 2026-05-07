@@ -9,18 +9,20 @@ import org.springframework.stereotype.Component;
 @Component
 public class PolicyEvaluator {
 
-    public ScaleAction evaluate(ResourceMetrics current, MetricHistory history, String serviceName,
-                                int currentInstances, int minInstances, int maxInstances,
-                                ServiceConfig config) {
-        // Scale up: immediate, any resource紧张
-        if (current.getCpuUsage() >= config.getCpuScaleUpThreshold()
-                || current.getMemoryUsage() >= config.getMemoryScaleUpThreshold()) {
-            if (currentInstances < maxInstances) {
-                return ScaleAction.SCALE_UP;
-            }
+    /** 扩容：任一资源超阈值且未达副本上限（用于 JVM 或 Docker cgroup 指标）。 */
+    public boolean shouldScaleUp(ResourceMetrics m, int currentInstances, int maxInstances, ServiceConfig config) {
+        if (currentInstances >= maxInstances) {
+            return false;
         }
+        return m.getCpuUsage() >= config.getCpuScaleUpThreshold()
+                || m.getMemoryUsage() >= config.getMemoryScaleUpThreshold();
+    }
 
-        // Scale down: must be low for consecutive periods
+    /**
+     * 缩容：仅依据历史窗口（与此前 evaluate 行为一致）；调用方需在 QPS 可靠且已有 JVM 资源样本时调用。
+     */
+    public ScaleAction evaluateScaleDown(MetricHistory history, String serviceName,
+                                         int currentInstances, int minInstances, ServiceConfig config) {
         int consecutivePeriods = config.getScaleDownConsecutivePeriods() > 0
                 ? config.getScaleDownConsecutivePeriods() : 3;
 

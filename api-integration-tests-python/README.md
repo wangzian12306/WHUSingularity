@@ -28,11 +28,13 @@ python -m unittest discover -s api-integration-tests-python/tests -p "test_*.py"
 
 ## 可选环境变量
 
-- `API_BASE_URL`：API 地址，默认 `http://localhost:8090`
+- `GATEWAY_BASE_URL`：Spring Cloud Gateway 根地址，默认 `http://localhost:8080`（与 compose 中 `8080:8080` 一致）。
+- `API_BASE_URL`：与 `GATEWAY_BASE_URL` 二选一，作为网关根地址（兼容旧说明）。
+- 直连某微服务（不经网关）时：`USER_API_BASE_URL`、`STOCK_API_BASE_URL`、`ORDER_API_BASE_URL`。
 
 例如：
 
 ```powershell
-$env:API_BASE_URL="http://localhost:18090"
+$env:GATEWAY_BASE_URL="http://localhost:8080"
 python -m unittest discover -s api-integration-tests-python/tests -p "test_*.py" -v
 ```

@@ -112,16 +112,18 @@ java -jar singularity-scaler/target/singularity-scaler-1.0-SNAPSHOT.jar
 秒杀扣减走的是 **Redis bucket 库存**，而非数据库 stock 表。启动后必须预热：
 
 ```bash
-# bucket-1
-curl -X POST http://localhost:8082/api/stock/slots/preheat \
+# bucket-1（与 order 槽位 stock:bucket-1 / PROD_001 一致；压测可改为 99999999）
+curl -X POST http://localhost:8080/api/stock/slots/preheat \
   -H "Content-Type: application/json" \
-  -d '{"slotId":"bucket-1","quantity":100,"overwrite":true}'
+  -d '{"slotId":"bucket-1","redisKey":"stock:bucket-1","quantity":99999999,"overwrite":true}'
 
 # bucket-2
-curl -X POST http://localhost:8082/api/stock/slots/preheat \
+curl -X POST http://localhost:8080/api/stock/slots/preheat \
   -H "Content-Type: application/json" \
-  -d '{"slotId":"bucket-2","quantity":100,"overwrite":true}'
+  -d '{"slotId":"bucket-2","redisKey":"stock:bucket-2","quantity":99999999,"overwrite":true}'
 ```
+
+> 一键同步 MySQL `singularity_stock` 与 Redis：PowerShell `.\deploy\refill-stock-buckets.ps1` 或 Bash `deploy/refill-stock-buckets.sh`。
 
 ---
 
@@ -146,8 +148,8 @@ curl -X POST http://localhost:8082/api/stock/slots/preheat \
 ```sql
 USE singularity_stock;
 INSERT INTO stock (product_id, available_quantity, reserved_quantity, total_quantity) VALUES
-('PROD_001', 100, 0, 100),
-('PROD_002', 50, 0, 50),
+('PROD_001', 99999999, 0, 99999999),
+('PROD_002', 99999999, 0, 99999999),
 ('PROD_003', 10, 0, 10),
 ('PROD_004', 30, 0, 30);
 ```
