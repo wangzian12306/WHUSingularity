@@ -11,8 +11,13 @@ public class ServiceConfig {
     private int portStep;
     private int minInstances;
     private int maxInstances;
-    private double qpsScaleUpThreshold;
-    private double qpsScaleDownThreshold;
+
+    private double cpuScaleUpThreshold = 0.70;
+    private double memoryScaleUpThreshold = 0.80;
+    private double cpuScaleDownThreshold = 0.20;
+    private double memoryScaleDownThreshold = 0.30;
+    private int scaleDownConsecutivePeriods = 3;
+
     private String image;
     private Map<String, String> env;
 }
