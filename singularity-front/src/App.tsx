@@ -12,6 +12,8 @@ import UserCenter from './pages/UserCenter'
 import AdminUserList from './pages/admin/AdminUserList'
 import AdminStockList from './pages/admin/AdminStockList'
 import AdminOrderList from './pages/admin/AdminOrderList'
+import MerchantProductList from './pages/merchant/MerchantProductList'
+import MerchantCenter from './pages/merchant/MerchantCenter'
 
 export default function App() {
   return (
@@ -38,6 +40,8 @@ export default function App() {
                 <Route path="/admin/users" element={<AdminRoute><AdminUserList /></AdminRoute>} />
                 <Route path="/admin/stock" element={<AdminRoute><AdminStockList /></AdminRoute>} />
                 <Route path="/admin/orders" element={<AdminRoute><AdminOrderList /></AdminRoute>} />
+                <Route path="/merchant/products" element={<MerchantProductList />} />
+                <Route path="/merchant/center" element={<MerchantCenter />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

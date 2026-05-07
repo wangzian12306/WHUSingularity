@@ -172,3 +172,76 @@ export interface UpdateMerchantRequest {
   avatar?: string
   password?: string
 }
+
+// Product
+export interface Product {
+  id: number
+  merchantId: number
+  name: string
+  description: string | null
+  price: number
+  image: string | null
+  category: string | null
+  status: number
+  createTime: string
+  updateTime: string
+}
+
+export interface ProductView {
+  id: number
+  merchantId: number
+  name: string
+  description: string | null
+  price: number
+  image: string | null
+  category: string | null
+  status: number
+  createTime: string
+  updateTime: string
+}
+
+export interface CreateProductRequest {
+  name: string
+  description?: string
+  price: number
+  image?: string
+  category?: string
+}
+
+export interface UpdateProductRequest {
+  name?: string
+  description?: string
+  price?: number
+  image?: string
+  category?: string
+  status?: number
+}
+
+// Product Inventory
+export interface ProductInventory {
+  id: number
+  productId: number
+  availableQuantity: number
+  lockedQuantity: number
+  totalQuantity: number
+  version: number
+  createTime: string
+  updateTime: string
+}
+
+export interface InventoryChangeLog {
+  id: number
+  productId: number
+  merchantId: number
+  changeQuantity: number
+  changeType: number
+  beforeQuantity: number
+  afterQuantity: number
+  remark: string | null
+  createTime: string
+}
+
+export interface AdjustInventoryRequest {
+  quantity: number
+  remark?: string
+}
