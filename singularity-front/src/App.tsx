@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ConfigProvider } from 'antd'
 import { AuthProvider } from './contexts/AuthContext'
+import { MerchantAuthProvider } from './contexts/MerchantAuthContext'
 import { ProtectedRoute } from './components/AuthGuard'
 import { AdminRoute } from './components/AdminGuard'
 import AppLayout from './components/AppLayout'
@@ -27,18 +28,20 @@ export default function App() {
     }}>
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/" element={<Home />} />
-              <Route path="/user" element={<UserCenter />} />
-              <Route path="/admin/users" element={<AdminRoute><AdminUserList /></AdminRoute>} />
-              <Route path="/admin/stock" element={<AdminRoute><AdminStockList /></AdminRoute>} />
-              <Route path="/admin/orders" element={<AdminRoute><AdminOrderList /></AdminRoute>} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <MerchantAuthProvider>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/" element={<Home />} />
+                <Route path="/user" element={<UserCenter />} />
+                <Route path="/admin/users" element={<AdminRoute><AdminUserList /></AdminRoute>} />
+                <Route path="/admin/stock" element={<AdminRoute><AdminStockList /></AdminRoute>} />
+                <Route path="/admin/orders" element={<AdminRoute><AdminOrderList /></AdminRoute>} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </MerchantAuthProvider>
         </AuthProvider>
       </BrowserRouter>
     </ConfigProvider>
