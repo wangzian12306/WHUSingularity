@@ -6,7 +6,9 @@ import com.lubover.singularity.scaler.discovery.InstanceDiscovery;
 import com.lubover.singularity.scaler.docker.DockerCommandExecutor;
 import com.lubover.singularity.scaler.docker.DockerContainerInspector;
 import com.lubover.singularity.scaler.docker.PortAllocator;
+import com.lubover.singularity.scaler.metrics.MetricHistory;
 import com.lubover.singularity.scaler.metrics.MetricsScraper;
+import com.lubover.singularity.scaler.model.ResourceMetrics;
 import com.lubover.singularity.scaler.model.ScaleAction;
 import com.lubover.singularity.scaler.model.ScaleResult;
 import com.lubover.singularity.scaler.model.ServiceState;
@@ -26,6 +28,7 @@ public class ScalingService {
 
     private final InstanceDiscovery instanceDiscovery;
     private final MetricsScraper metricsScraper;
+    private final MetricHistory metricHistory;
     private final DockerContainerInspector containerInspector;
     private final PortAllocator portAllocator;
     private final DockerCommandExecutor dockerCommandExecutor;
@@ -50,7 +53,12 @@ public class ScalingService {
         int nacosCount = instanceDiscovery.getHealthyInstances(config.getName()).size();
         int dockerCount = containerInspector.getContainerNamesForService(config.getName()).size();
         state.setInstanceCount(Math.max(nacosCount, dockerCount));
-        state.setCurrentQps(metricsScraper.scrapeQps(config.getName()));
+
+        ResourceMetrics metrics = metricsScraper.scrape(config.getName());
+        state.setCurrentQps(metrics.getQps());
+        state.setAvgCpuUsage(metrics.getCpuUsage());
+        state.setAvgMemoryUsage(metrics.getMemoryUsage());
+
         state.setCooldownActive(cooldownManager.isCooldownActive(config.getName(), scalerProperties.getCooldownSeconds()));
         Long lastTime = cooldownManager.getLastActionTime(config.getName());
         state.setLastActionTime(lastTime != null ? lastTime : 0);
@@ -69,16 +77,18 @@ public class ScalingService {
             currentInstances = instanceDiscovery.getHealthyInstances(serviceName).size();
         }
 
-        double qps = metricsScraper.scrapeQps(serviceName);
-        log.info("Service {}: instances={}, qps={}", serviceName, currentInstances, qps);
+        ResourceMetrics metrics = metricsScraper.scrape(serviceName);
+        metricHistory.record(serviceName, metrics);
+
+        log.info("Service {}: instances={}, cpu={}, memory={}",
+                serviceName, currentInstances,
+                String.format("%.2f", metrics.getCpuUsage()),
+                String.format("%.2f", metrics.getMemoryUsage()));
 
         ScaleAction action = policyEvaluator.evaluate(
-                qps,
-                config.getQpsScaleUpThreshold(),
-                config.getQpsScaleDownThreshold(),
-                currentInstances,
-                config.getMinInstances(),
-                config.getMaxInstances()
+                metrics, metricHistory, serviceName,
+                currentInstances, config.getMinInstances(), config.getMaxInstances(),
+                config
         );
 
         if (action == ScaleAction.SCALE_UP) {
