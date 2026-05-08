@@ -10,9 +10,10 @@ WHUSingularity — 高并发抢单（秒杀）系统框架 + Spring Cloud 微服
 
 - Java 21, Spring Boot 3.2.6, Spring Cloud 2023.0.3, Spring Cloud Alibaba 2023.0.3.2
 - Nacos (服务注册与配置中心，替换 Eureka)
+- Spring Cloud Gateway (API 网关，路由转发 + 负载均衡)
 - OpenFeign (服务间调用)
-- MyBatis 3.0.4, MySQL, Redis, RocketMQ 2.3.1
-- Flyway (stock 服务数据库迁移)
+- MyBatis 3.0.4, MySQL, Redis, RocketMQ 2.3.1, Caffeine (本地缓存)
+- Flyway (stock、product 服务数据库迁移)
 - 前端: React 19 + TypeScript + Vite + Ant Design
 
 ## Build & Run
@@ -24,7 +25,7 @@ mvn -pl singularity-user test    # 测试单个模块
 mvn test                         # 测试全部
 ```
 
-**启动顺序**: Nacos (8848) → user (8090) → order (8081) → stock (8082)
+**启动顺序**: Nacos (8848) → user (8090) → stock (8082) → order (8081) → product (8087) → merchant (8091) → gateway (8080) → scaler (9090)
 
 **基础设施依赖**: MySQL 3306, Redis 6379, Nacos 8848, RocketMQ NameServer 9876 + Broker 10911
 
@@ -38,12 +39,16 @@ mvn test                         # 测试全部
 ```
 singularity-core/           — 核心框架：Allocator/Actor/Slot/Interceptor/ShardPolicy/Registry
 singularity-eureka/         — 已弃用（Deprecated），由 Nacos 替换，pom.xml 中已注释
+singularity-gateway/        — API 网关：Spring Cloud Gateway 路由转发 + 负载均衡 (8080)
 singularity-front/          — 前端：React + TS + Vite + Ant Design
 singularity-user/           — 用户服务：注册/登录/JWT认证/余额管理 (8090)
 singularity-order/          — 订单服务：高并发抢单，依赖 core 框架 (8081)
 singularity-stock/          — 库存服务：库存管理，MQ 驱动，Flyway 迁移 (8082)
+singularity-product/        — 商品服务：商品 CRUD + Caffeine/Redis 两级缓存，Flyway 迁移 (8087)
+singularity-merchant/       — 商户服务：商户注册/JWT认证、商品管理、库存管理 (8091，默认 H2)
+singularity-scaler/         — 自动伸缩服务：Prometheus 指标采集 + Docker 容器启停 (9090)
 api-integration-tests-python/ — 业务流程 Python 测试脚本
-deploy/                     — Docker Compose 编排文件
+deploy/                     — Docker Compose 编排文件 + 容器伸缩脚本
 docker/                     — Docker 构建相关
 ```
 
@@ -59,9 +64,10 @@ docker/                     — Docker 构建相关
 
 ### Service Communication
 
+- **网关路由**: Spring Cloud Gateway (8080) 按路径前缀转发：`/api/user` → user、`/api/order` → order、`/api/stock` → stock、`/api/product` → product，基于 Nacos 服务发现 + 负载均衡
 - **同步**: OpenFeign + Nacos 服务发现（如 Order 调用 User 验证用户）
 - **异步**: RocketMQ（`order-topic` 由 Order 服务发布，Order 自身的 `OrderConsumerService` 和 Stock 服务的 `OrderTopicConsumer` 同时消费）
-- **认证**: JWT + Redis token blacklist，无状态跨服务
+- **认证**: JWT + Redis token blacklist，无状态跨服务（User 和 Merchant 各自独立签发 JWT）
 
 ### Data Flow (订单 → 库存扣减)
 
@@ -79,6 +85,9 @@ docker/                     — Docker 构建相关
 - `singularity-order.yaml` — Redis、RocketMQ（order-topic producer/consumer）、Slot 分槽配置（含 product-id）
 - `singularity-user.yaml` — Redis、JWT secret、blacklist 前缀
 - `singularity-stock.yaml` — Redis、RocketMQ consumer 配置（stock-topic + order-topic 双消费者）
+- `singularity-product.yaml` — Redis 缓存配置（如需远程缓存覆盖默认值）
+- `singularity-gateway.yaml` — 路由配置（可覆盖 application.yml 中的默认路由）
+- `singularity-scaler.yaml` — 自动伸缩策略配置（阈值、实例数限制、端口分配）
 
 详见 `docs/nacos/README.md`。
 

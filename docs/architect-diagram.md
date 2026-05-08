@@ -12,38 +12,48 @@ graph TB
         FE["singularity-front<br/>React 19 + TypeScript<br/>Vite + Ant Design<br/>:3000"]
     end
 
-    subgraph Gateway["Infrastructure"]
+    subgraph Infra["Infrastructure"]
         NACOS["Nacos<br/>Service Registry<br/>+ Config Center<br/>:8848"]
         REDIS["Redis<br/>:6379"]
         MYSQL["MySQL<br/>:3306"]
         MQ["RocketMQ<br/>NameServer :9876<br/>Broker :10911"]
+        GATEWAY["singularity-gateway<br/>:8080<br/>Spring Cloud Gateway"]
     end
 
     subgraph Services["Microservices"]
         USER["singularity-user<br/>:8090<br/>DB: singularity_user"]
         ORDER["singularity-order<br/>:8081<br/>DB: singularity_order"]
         STOCK["singularity-stock<br/>:8082<br/>DB: singularity_stock"]
+        PRODUCT["singularity-product<br/>:8087<br/>DB: singularity_product"]
         MERCHANT["singularity-merchant<br/>:8091<br/>DB: singularity_merchant"]
+        SCALER["singularity-scaler<br/>:9090<br/>Auto-scaler / Metrics"]
     end
 
-    FE -->|"HTTP REST"| USER
-    FE -->|"HTTP REST"| ORDER
-    FE -->|"HTTP REST"| STOCK
-    FE -->|"HTTP REST"| MERCHANT
+    FE -->|"HTTP REST"| GATEWAY
+    GATEWAY -->|"/api/user"| USER
+    GATEWAY -->|"/api/order"| ORDER
+    GATEWAY -->|"/api/stock"| STOCK
+    GATEWAY -->|"/api/product"| PRODUCT
+    GATEWAY -->|"/api/merchant"| MERCHANT
 
     USER -->|"Register / Discover"| NACOS
     ORDER -->|"Register / Discover"| NACOS
     STOCK -->|"Register / Discover"| NACOS
+    PRODUCT -->|"Register / Discover"| NACOS
     MERCHANT -->|"Register / Discover"| NACOS
+    GATEWAY -->|"Register / Discover"| NACOS
+    SCALER -->|"Register / Discover"| NACOS
 
     USER -->|"JWT blacklist<br/>User cache"| REDIS
     ORDER -->|"Stock counters<br/>Order hash"| REDIS
     STOCK -->|"Slot warmup"| REDIS
+    PRODUCT -->|"Cache-Aside"| REDIS
     MERCHANT -->|"JWT blacklist"| REDIS
 
     USER -->|"User data"| MYSQL
     ORDER -->|"Order records"| MYSQL
     STOCK -->|"Stock + change logs"| MYSQL
+    PRODUCT -->|"Product catalog"| MYSQL
     MERCHANT -->|"Merchant + products"| MYSQL
 
     ORDER -->|"Publish: order-topic<br/>(Transaction Message)"| MQ
@@ -52,6 +62,7 @@ graph TB
     MQ -->|"Consume: stock-topic<br/>stock-consumer-group"| STOCK
 
     ORDER -->|"OpenFeign<br/>GET /api/user/{id}<br/>POST /api/user/{id}/deduct"| USER
+    SCALER -->|"docker run / rm"| Infra
 ```
 
 ---

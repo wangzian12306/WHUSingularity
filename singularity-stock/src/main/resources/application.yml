@@ -22,3 +22,13 @@ rocketmq:
     order:
       topic: ${ROCKETMQ_CONSUMER_ORDER_TOPIC:order-topic}
       group: ${ROCKETMQ_CONSUMER_ORDER_GROUP:stock-order-consumer-group}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true

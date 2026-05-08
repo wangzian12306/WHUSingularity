@@ -8,12 +8,13 @@ import urllib.request
 from random import randint
 
 
-USER_BASE_URL = os.getenv("USER_API_BASE_URL", os.getenv("API_BASE_URL", "http://localhost:8090"))
-STOCK_BASE_URL = os.getenv("STOCK_API_BASE_URL", "http://localhost:8082")
-ORDER_BASE_URL = os.getenv("ORDER_API_BASE_URL", "http://localhost:8081")
-USER_API = f"{USER_BASE_URL}/api/user"
-STOCK_API = f"{STOCK_BASE_URL}/api/stock/slots"
-ORDER_API = f"{ORDER_BASE_URL}/api/order"
+# 默认经 Spring Cloud Gateway（compose 映射 8080）；user/stock/order 在宿主不再固定端口暴露时必用此法。
+# 分项覆盖：GATEWAY_BASE_URL > API_BASE_URL > http://localhost:8080
+# 仅调单服务（未走网关）时可设 USER_API_BASE_URL / STOCK_API_BASE_URL / ORDER_API_BASE_URL。
+_GATEWAY = os.getenv("GATEWAY_BASE_URL") or os.getenv("API_BASE_URL") or "http://localhost:8080"
+USER_API = f"{os.getenv('USER_API_BASE_URL', _GATEWAY)}/api/user"
+STOCK_API = f"{os.getenv('STOCK_API_BASE_URL', _GATEWAY)}/api/stock/slots"
+ORDER_API = f"{os.getenv('ORDER_API_BASE_URL', _GATEWAY)}/api/order"
 
 
 def random_user():

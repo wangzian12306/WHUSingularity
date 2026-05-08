@@ -1,3 +1,8 @@
+# 项目名固定为 singularity，便于 scaler 使用 docker compose --scale 与 label 对齐。
+# rebuild-stack：order 默认 3 副本；user / stock 默认 1（见 deploy/rebuild-stack.ps1 --scale）。可伸缩服务勿设 container_name、勿映射宿主端口（多副本时），统一经 gateway。
+name: singularity
+
+# 卷 ${REPO_ROOT:-..} → /workspace。Windows 易把 .. 解析错，请复制 deploy/.env.example 为 deploy/.env 并设 REPO_ROOT=仓库根绝对路径。
 services:
   mysql:
     image: mysql:8.4
@@ -61,9 +66,8 @@ services:
       - "10911:10911"
       - "10909:10909"
 
-  singularity-user-0:
+  singularity-user:
     image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-user-0
     restart: unless-stopped
     working_dir: /workspace
     command: sh -c "java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
@@ -77,69 +81,15 @@ services:
       JWT_SECRET: dev-secret-key
       SERVER_PORT: "8090"
     volumes:
-      - ../:/workspace
+      - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
     depends_on:
       - mysql
       - redis
       - nacos
-    ports:
-      - "8090:8090"
 
-  singularity-user-1:
+  singularity-stock:
     image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-user-1
-    restart: unless-stopped
-    working_dir: /workspace
-    command: sh -c "java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
-    environment:
-      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_user?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: "6379"
-      JWT_SECRET: dev-secret-key
-      # 与单实例(8090) 及 user-2(8091) 错开，避免宿主机端口冲突
-      SERVER_PORT: "8092"
-    volumes:
-      - ../:/workspace
-      - maven_repo:/root/.m2
-    depends_on:
-      - mysql
-      - redis
-      - nacos
-    ports:
-      - "8092:8092"
-
-  singularity-user-2:
-    image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-user-2
-    restart: unless-stopped
-    working_dir: /workspace
-    command: sh -c "java -jar singularity-user/target/singularity-user-1.0-SNAPSHOT.jar"
-    environment:
-      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_user?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: "6379"
-      JWT_SECRET: dev-secret-key
-      SERVER_PORT: "8091"
-    volumes:
-      - ../:/workspace
-      - maven_repo:/root/.m2
-    depends_on:
-      - mysql
-      - redis
-      - nacos
-    ports:
-      - "8091:8091"
-
-  singularity-stock-0:
-    image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-stock-0
     restart: unless-stopped
     working_dir: /workspace
     command: sh -c "java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
@@ -154,77 +104,20 @@ services:
       ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
       SERVER_PORT: "8082"
     volumes:
-      - ../:/workspace
+      - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
     depends_on:
       - mysql
       - redis
       - nacos
       - rmq-broker
-    ports:
-      - "8082:8082"
 
-  singularity-stock-1:
+  # Order：同一服务名多副本；勿设 container_name。启动脚本见 deploy/order-docker-cmd.sh（缺 jar 时打印诊断）
+  singularity-order:
     image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-stock-1
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
-    environment:
-      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_stock?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: "6379"
-      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
-      ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
-      # 与单实例(8082) 及 stock-2(8084) 错开
-      SERVER_PORT: "8086"
-    volumes:
-      - ../:/workspace
-      - maven_repo:/root/.m2
-    depends_on:
-      - mysql
-      - redis
-      - nacos
-      - rmq-broker
-    ports:
-      - "8086:8086"
-
-  singularity-stock-2:
-    image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-stock-2
-    restart: unless-stopped
-    working_dir: /workspace
-    command: sh -c "java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar"
-    environment:
-      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_stock?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: "6379"
-      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
-      ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
-      SERVER_PORT: "8084"
-    volumes:
-      - ../:/workspace
-      - maven_repo:/root/.m2
-    depends_on:
-      - mysql
-      - redis
-      - nacos
-      - rmq-broker
-    ports:
-      - "8084:8084"
-
-  singularity-order-0:
-    image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-order-0
-    restart: unless-stopped
-    working_dir: /workspace
-    command: sh -c "java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
+    command: sh -c "exec sh /workspace/deploy/order-docker-cmd.sh"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -238,81 +131,148 @@ services:
       SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1","product-id":"PROD_001"},{"id":"bucket-2","redis-key":"stock:bucket-2","product-id":"PROD_002"}]}}}'
       SERVER_PORT: "8081"
     volumes:
-      - ../:/workspace
+      - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
     depends_on:
       - mysql
       - redis
       - nacos
       - rmq-broker
-    ports:
-      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8081/actuator/health >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
 
-  singularity-order-1:
-    image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-order-1
+  # 三台独立 nginx，分散 LB 单点（各自 worker/连接上限）；宿主 8081/8181/8281 各打一台。
+  # 容器内 DNS：singularity-order-lb-1 / -2 / -3；k6 见 LB_TARGETS。
+  singularity-order-lb-1:
+    image: nginx:alpine
     restart: unless-stopped
-    working_dir: /workspace
-    command: sh -c "java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
-    environment:
-      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: "6379"
-      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
-      ROCKETMQ_PRODUCER_GROUP: order-producer-group
-      ROCKETMQ_CONSUMER_GROUP: order-consumer-group
-      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1","product-id":"PROD_001"},{"id":"bucket-2","redis-key":"stock:bucket-2","product-id":"PROD_002"}]}}}'
-      # 与单实例(8081) 及 order-2(8083) 错开
-      SERVER_PORT: "8085"
-    volumes:
-      - ../:/workspace
-      - maven_repo:/root/.m2
-    depends_on:
-      - mysql
-      - redis
-      - nacos
-      - rmq-broker
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     ports:
-      - "8085:8085"
+      - "8081:80"
+    volumes:
+      - ./nginx/nginx-order-lb-main.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/order-lb.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      singularity-order:
+        condition: service_started
 
-  singularity-order-2:
-    image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-order-2
+  singularity-order-lb-2:
+    image: nginx:alpine
     restart: unless-stopped
-    working_dir: /workspace
-    command: sh -c "java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar"
-    environment:
-      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: "6379"
-      ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
-      ROCKETMQ_PRODUCER_GROUP: order-producer-group
-      ROCKETMQ_CONSUMER_GROUP: order-consumer-group
-      SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1","product-id":"PROD_001"},{"id":"bucket-2","redis-key":"stock:bucket-2","product-id":"PROD_002"}]}}}'
-      SERVER_PORT: "8083"
-    volumes:
-      - ../:/workspace
-      - maven_repo:/root/.m2
-    depends_on:
-      - mysql
-      - redis
-      - nacos
-      - rmq-broker
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     ports:
-      - "8083:8083"
+      - "8181:80"
+    volumes:
+      - ./nginx/nginx-order-lb-main.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/order-lb.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      singularity-order:
+        condition: service_started
 
-  singularity-product-0:
+  singularity-order-lb-3:
+    image: nginx:alpine
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    ports:
+      - "8281:80"
+    volumes:
+      - ./nginx/nginx-order-lb-main.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/order-lb.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      singularity-order:
+        condition: service_started
+
+  singularity-product:
     image: maven:3.9.9-eclipse-temurin-21
-    container_name: singularity-product-0
     restart: unless-stopped
     working_dir: /workspace
     command: sh -c "java -jar singularity-product/target/singularity-product-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_product?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SERVER_PORT: "8087"
+    volumes:
+      - ${REPO_ROOT:-..}:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+
+  singularity-merchant:
+    image: maven:3.9.9-eclipse-temurin-21
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "java -jar singularity-merchant/target/singularity-merchant-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_merchant?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      JWT_SECRET: dev-secret-key-at-least-32-characters-long
+      SERVER_PORT: "8091"
+    volumes:
+      - ${REPO_ROOT:-..}:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      - mysql
+      - redis
+      - nacos
+
+  singularity-gateway:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-gateway-0
+    restart: unless-stopped
+    working_dir: /workspace
+    command: sh -c "java -jar singularity-gateway/target/singularity-gateway-1.0-SNAPSHOT.jar"
+    environment:
+      SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+      SERVER_PORT: "8080"
+    volumes:
+      - ${REPO_ROOT:-..}:/workspace
+      - maven_repo:/root/.m2
+    depends_on:
+      nacos:
+        condition: service_started
+      singularity-user:
+        condition: service_started
+      singularity-order:
+        condition: service_started
+      singularity-stock:
+        condition: service_started
+      singularity-product:
+        condition: service_started
+      singularity-merchant:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+  singularity-scaler-0:
+    image: maven:3.9.9-eclipse-temurin-21
+    container_name: singularity-scaler-0
+    restart: unless-stopped
+    working_dir: /workspace
+    entrypoint: ["/bin/sh", "/workspace/deploy/scaler-entrypoint.sh"]
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_product?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -327,13 +287,20 @@ services:
       ROCKETMQ_CONSUMER_PRODUCT_GROUP: product-cache-consumer-group
       SERVER_PORT: "8087"
     volumes:
-      - ../:/workspace
+      - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      - mysql
-      - redis
-      - nacos
-      - rmq-broker
+      nacos:
+        condition: service_started
+      singularity-user:
+        condition: service_started
+      singularity-order:
+        condition: service_started
+      singularity-stock:
+        condition: service_started
+      singularity-product:
+        condition: service_started
     ports:
       - "8087:8087"
 
@@ -405,9 +372,154 @@ services:
     ports:
       - "5173:80"
     depends_on:
-      - singularity-user-0
-      - singularity-order-0
-      - singularity-stock-0
+      singularity-user:
+        condition: service_started
+      singularity-order:
+        condition: service_started
+      singularity-stock:
+        condition: service_started
+
+  # k6 在容器内直连 order（不经 LB）。默认三条车道均为 singularity-order:8081，多副本时可能连接仍集中在一台。
+  # 若已 --scale singularity-order=3，要对三台「各打一条车道」：用 ORDER_TARGETS；且 k6 **必须** --no-deps，否则 run 会按 compose 默认 1 副本协调依赖、拆掉多余 order。
+  #   .\deploy\run-k6-order-load-with-targets.cmd -Duration 2m
+  #   （若禁止脚本：同上 .cmd；或 powershell -ExecutionPolicy Bypass -File .\deploy\run-k6-order-load-with-targets.ps1）
+  #   或手动：$t = .\k6-print-order-targets.ps1; docker compose -f docker-compose.backend.yml --profile k6 run --rm --no-deps -e "ORDER_TARGETS=$t" k6-order-load
+  # 若仍要打单台 LB：-e ORDER_BASE=http://singularity-order-lb-1（不要 ORDER_TARGETS）跑 k6-order-load
+  # 推荐专用：--profile k6 run --rm --no-deps k6-order-lb-load（见 tests/order-stress-test/k6-snag-docker-internal-lb.js 头部注释）
+  #   .\deploy\run-k6-order-lb-load.cmd -Duration 2m
+  # 阶梯 RPS + 每档时长（拐点观察 http_req_failed / dropped_iterations；CPU 另开 docker stats）：
+  #   docker compose -f docker-compose.backend.yml --profile k6 run --rm -e RPS_RAMP=800,1200,1600,2000 -e STEP_SEC=180 k6-order-ramp
+  k6-order-load:
+    image: grafana/k6:latest
+    container_name: singularity-k6-order
+    profiles: [k6]
+    volumes:
+      - ${REPO_ROOT:-..}/tests/order-stress-test:/scripts:ro
+      - ${REPO_ROOT:-..}/tests/order-stress-test/k6-out:/out:rw
+    depends_on:
+      singularity-order:
+        condition: service_healthy
+    environment:
+      ORDER_BASE: "http://singularity-order:8081"
+      ORDER_TARGETS: ${ORDER_TARGETS:-}
+      DURATION: "2m"
+      SUMMARY_OUT: /out/summary-docker.json
+      K6_START_DELAY: "0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sleep "$${K6_START_DELAY}"
+        exec k6 run \
+          -e "SUMMARY_OUT=$${SUMMARY_OUT}" \
+          -e "ORDER_BASE=$${ORDER_BASE}" \
+          -e "ORDER_TARGETS=$${ORDER_TARGETS}" \
+          -e "RPS_PER_PORT=$${RPS_PER_PORT}" \
+          -e "DURATION=$${DURATION}" \
+          /scripts/k6-snag-docker-internal.js
+
+  # 与 k6-order-load 相同，脚本校验 snag JSON success:true；汇总 /out/summary-docker-business.json
+  # 可选 -e STRICT_BUSINESS_MIN_RATE=0.05 要求业务成功率下限（请先 refill Redis）
+  k6-order-load-business:
+    image: grafana/k6:latest
+    profiles: [k6]
+    volumes:
+      - ${REPO_ROOT:-..}/tests/order-stress-test:/scripts:ro
+      - ${REPO_ROOT:-..}/tests/order-stress-test/k6-out:/out:rw
+    depends_on:
+      singularity-order:
+        condition: service_healthy
+    environment:
+      ORDER_BASE: "http://singularity-order:8081"
+      ORDER_TARGETS: ${ORDER_TARGETS:-}
+      DURATION: "2m"
+      SUMMARY_OUT: /out/summary-docker-business.json
+      K6_START_DELAY: "0"
+      STRICT_BUSINESS_MIN_RATE: ${STRICT_BUSINESS_MIN_RATE:-}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sleep "$${K6_START_DELAY}"
+        exec k6 run \
+          -e "SUMMARY_OUT=$${SUMMARY_OUT}" \
+          -e "ORDER_BASE=$${ORDER_BASE}" \
+          -e "ORDER_TARGETS=$${ORDER_TARGETS}" \
+          -e "RPS_PER_PORT=$${RPS_PER_PORT}" \
+          -e "DURATION=$${DURATION}" \
+          -e "STRICT_BUSINESS_MIN_RATE=$${STRICT_BUSINESS_MIN_RATE}" \
+          /scripts/k6-snag-docker-internal-business.js
+
+  k6-order-lb-load:
+    image: grafana/k6:latest
+    container_name: singularity-k6-order-lb
+    profiles: [k6]
+    volumes:
+      - ${REPO_ROOT:-..}/tests/order-stress-test:/scripts:ro
+      - ${REPO_ROOT:-..}/tests/order-stress-test/k6-out:/out:rw
+    depends_on:
+      singularity-order:
+        condition: service_healthy
+      singularity-order-lb-1:
+        condition: service_started
+      singularity-order-lb-2:
+        condition: service_started
+      singularity-order-lb-3:
+        condition: service_started
+    environment:
+      LB_TARGETS: "http://singularity-order-lb-1,http://singularity-order-lb-2,http://singularity-order-lb-3"
+      DURATION: "2m"
+      SUMMARY_OUT: /out/summary-docker-lb.json
+      K6_START_DELAY: "0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sleep "$${K6_START_DELAY}"
+        exec k6 run \
+          -e "SUMMARY_OUT=$${SUMMARY_OUT}" \
+          -e "LB_TARGETS=$${LB_TARGETS}" \
+          -e "LB_BASE=$${LB_BASE}" \
+          -e "ORDER_BASE=$${ORDER_BASE}" \
+          -e "NO_CONNECTION_REUSE=$${NO_CONNECTION_REUSE}" \
+          -e "RPS_PER_PORT=$${RPS_PER_PORT}" \
+          -e "DURATION=$${DURATION}" \
+          /scripts/k6-snag-docker-internal-lb.js
+
+  k6-order-ramp:
+    image: grafana/k6:latest
+    container_name: singularity-k6-order-ramp
+    profiles: [k6]
+    volumes:
+      - ${REPO_ROOT:-..}/tests/order-stress-test:/scripts:ro
+      - ${REPO_ROOT:-..}/tests/order-stress-test/k6-out:/out:rw
+    depends_on:
+      singularity-order:
+        condition: service_healthy
+    environment:
+      ORDER_BASE: "http://singularity-order:8081"
+      ORDER_TARGETS: ${ORDER_TARGETS:-}
+      RPS_RAMP: "800,1200,1600,2000,2400"
+      STEP_SEC: "120"
+      SUMMARY_OUT: /out/summary-ramp.json
+      K6_START_DELAY: "0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sleep "$${K6_START_DELAY}"
+        exec k6 run \
+          -e "SUMMARY_OUT=$${SUMMARY_OUT}" \
+          -e "ORDER_BASE=$${ORDER_BASE}" \
+          -e "ORDER_TARGETS=$${ORDER_TARGETS}" \
+          -e "RPS_RAMP=$${RPS_RAMP}" \
+          -e "STEP_SEC=$${STEP_SEC}" \
+          /scripts/k6-snag-docker-internal-ramp.js
+
+networks:
+  default:
+    name: singularity-backend
+    driver: bridge
 
 volumes:
   mysql_data:

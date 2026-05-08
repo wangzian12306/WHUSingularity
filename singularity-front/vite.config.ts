@@ -5,9 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api/user': 'http://localhost:8090',
-      '/api/order': 'http://localhost:8081',
-      '/api/stock': 'http://localhost:8082',
+      // 本地开发：与 compose 一致，全部经 Gateway（8080），避免遗漏 /api/merchant 或指向错误端口（如 9091）
+      '/api': 'http://localhost:8080',
     },
   },
 })

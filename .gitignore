@@ -39,7 +39,21 @@ build/
 ### Mac OS ###
 .DS_Store
 
+### Local Docker ###
+deploy/.env
+
 ### Personal ###
 refs/
 .history/
 .local/
+deploy/jmeter/
+
+### k6 / order stress tests（本地压测脚本与产出，不纳入版本库）###
+tests/order-stress-test/
+deploy/k6-print-order-targets.ps1
+deploy/k6-print-order-targets.sh
+deploy/run-k6-order-lb-load.ps1
+deploy/run-k6-order-lb-load.cmd
+deploy/run-k6-order-load-with-targets.ps1
+deploy/run-k6-order-load-with-targets.cmd
+/summary.json

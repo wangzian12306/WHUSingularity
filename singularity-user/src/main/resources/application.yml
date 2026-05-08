@@ -15,3 +15,12 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true

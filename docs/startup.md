@@ -24,6 +24,7 @@ startup.cmd -m standalone
 - `singularity-order.yaml`
 - `singularity-user.yaml`
 - `singularity-stock.yaml`
+- `singularity-scaler.yaml`（可选，覆盖默认阈值时创建）
 
 #### 1.3 启动 MySQL
 
@@ -39,6 +40,12 @@ CREATE DATABASE singularity_user DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode
 
 -- 库存服务数据库（表结构由 Flyway 自动创建）
 CREATE DATABASE singularity_stock DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 商品服务数据库（表结构由 Flyway 自动创建）
+CREATE DATABASE singularity_product DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 商户服务数据库（如使用 MySQL local profile，表结构由 init-schema.sql 初始化）
+CREATE DATABASE singularity_merchant DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 #### 1.4 启动 Redis
@@ -72,6 +79,18 @@ java -jar singularity-stock/target/singularity-stock-1.0-SNAPSHOT.jar
 
 # 启动订单服务
 java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar
+
+# 启动商品服务
+java -jar singularity-product/target/singularity-product-1.0-SNAPSHOT.jar
+
+# 启动商户服务（默认使用 H2 内存数据库，无需 MySQL）
+java -jar singularity-merchant/target/singularity-merchant-1.0-SNAPSHOT.jar
+
+# 启动 API 网关（可选，统一入口）
+java -jar singularity-gateway/target/singularity-gateway-1.0-SNAPSHOT.jar
+
+# 启动自动伸缩服务（可选，需 Docker 环境）
+java -jar singularity-scaler/target/singularity-scaler-1.0-SNAPSHOT.jar
 ```
 
 ### 3. 验证服务注册
@@ -81,6 +100,10 @@ java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar
 - `singularity-order`
 - `singularity-user`
 - `singularity-stock`
+- `singularity-product`
+- `singularity-merchant`（如启用 Nacos discovery）
+- `singularity-gateway`
+- `singularity-scaler`
 
 ---
 
@@ -89,16 +112,18 @@ java -jar singularity-order/target/singularity-order-1.0-SNAPSHOT.jar
 秒杀扣减走的是 **Redis bucket 库存**，而非数据库 stock 表。启动后必须预热：
 
 ```bash
-# bucket-1
-curl -X POST http://localhost:8082/api/stock/slots/preheat \
+# bucket-1（与 order 槽位 stock:bucket-1 / PROD_001 一致；压测可改为 99999999）
+curl -X POST http://localhost:8080/api/stock/slots/preheat \
   -H "Content-Type: application/json" \
-  -d '{"slotId":"bucket-1","quantity":100,"overwrite":true}'
+  -d '{"slotId":"bucket-1","redisKey":"stock:bucket-1","quantity":99999999,"overwrite":true}'
 
 # bucket-2
-curl -X POST http://localhost:8082/api/stock/slots/preheat \
+curl -X POST http://localhost:8080/api/stock/slots/preheat \
   -H "Content-Type: application/json" \
-  -d '{"slotId":"bucket-2","quantity":100,"overwrite":true}'
+  -d '{"slotId":"bucket-2","redisKey":"stock:bucket-2","quantity":99999999,"overwrite":true}'
 ```
+
+> 一键同步 MySQL `singularity_stock` 与 Redis：PowerShell `.\deploy\refill-stock-buckets.ps1` 或 Bash `deploy/refill-stock-buckets.sh`。
 
 ---
 
@@ -123,8 +148,8 @@ curl -X POST http://localhost:8082/api/stock/slots/preheat \
 ```sql
 USE singularity_stock;
 INSERT INTO stock (product_id, available_quantity, reserved_quantity, total_quantity) VALUES
-('PROD_001', 100, 0, 100),
-('PROD_002', 50, 0, 50),
+('PROD_001', 99999999, 0, 99999999),
+('PROD_002', 99999999, 0, 99999999),
 ('PROD_003', 10, 0, 10),
 ('PROD_004', 30, 0, 30);
 ```
@@ -161,3 +186,25 @@ Vite 代理已配置（`vite.config.ts`）：
 API 契约（`docs/frontend/03-frontend-api-contracts.md`）规定 `status` 为 number（0=处理中, 1=成功, 2=失败），但后端实际返回字符串 `"CREATED"`。前端已做兼容处理：将 `"CREATED"` 视为处理中。
 
 > 注：API 契约文档已更新，将后端实际行为记录在末尾的"与后端实现不一致之处"章节。
+
+### 3. scaler 自动伸缩服务环境依赖
+
+**Docker Compose 启动时的额外依赖**：
+- scaler 服务需要挂载宿主机的 `/var/run/docker.sock`，且容器内需要安装 `docker.io`（已在 `command` 中自动处理）
+- 首次启动时若遇到 `Cannot run program "docker"`，等待 scaler 容器自动完成 `apt-get install docker.io` 即可
+
+**MySQL 数据库初始化**：
+- 若 `mysql_data` volume 是之前运行残留的，`deploy/mysql/init/01-init.sql` 不会重新执行
+- 如遇 `Unknown database 'singularity_product'` 或 order 的 Flyway checksum mismatch，需手动处理数据库：
+  ```sql
+  -- 重建 order 数据库（Flyway 会重新执行迁移）
+  DROP DATABASE IF EXISTS singularity_order;
+  CREATE DATABASE singularity_order DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+  -- 创建 product 数据库
+  CREATE DATABASE IF NOT EXISTS singularity_product DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_unicode_ci;
+  ```
+
+**Nacos 配置**：
+- scaler 默认阈值已内嵌在 `application.yml` 中，如需覆盖，在 Nacos 创建 `singularity-scaler.yaml`
+- 详见 `docs/nacos/README.md` 和 `docs/rfc/auto-scaler-design.md`
