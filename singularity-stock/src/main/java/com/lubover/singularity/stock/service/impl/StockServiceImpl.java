@@ -53,31 +53,19 @@ public class StockServiceImpl implements StockService {
             return dup != null && dup.getStatus() == 1;
         }
 
-        // 3. 执行扣库存操作（乐观锁冲突时最多重试3次）
-        for (int i = 0; i < 3; i++) {
-            Stock stock = stockMapper.selectByProductId(productId);
-            if (stock == null || stock.getAvailableQuantity() < quantity) {
-                // 库存不足
-                changeLogMapper.updateStatus(log.getId(), 2, "库存不足");
-                return false;
-            }
-
-            int result = stockMapper.updateAvailableQuantity(productId, quantity, stock.getVersion());
-            if (result > 0) {
-                // 更新成功，增加已占用库存
-                int reservedUpdated = stockMapper.increaseReservedQuantity(productId, quantity);
-                if (reservedUpdated != 1) {
-                    changeLogMapper.updateStatus(log.getId(), 2, "增加预占库存失败，影响行数: " + reservedUpdated);
-                    throw new IllegalStateException("增加预占库存失败，productId=" + productId + ", affectedRows=" + reservedUpdated);
-                }
-                // 记录日志为已处理
-                changeLogMapper.updateStatus(log.getId(), 1, "成功");
-                return true;
-            }
+        // 3. 单条 SQL 条件扣减可用并增加预占（InnoDB 行锁串行化，避免先读后写 version 冲突）
+        int affected = stockMapper.deductAvailableAndReserve(productId, quantity);
+        if (affected == 1) {
+            changeLogMapper.updateStatus(log.getId(), 1, "成功");
+            return true;
         }
 
-        // 版本不匹配，扣库存失败（库存被其他线程修改）
-        changeLogMapper.updateStatus(log.getId(), 2, "版本冲突，重试后仍失败");
+        Stock stock = stockMapper.selectByProductId(productId);
+        if (stock == null) {
+            changeLogMapper.updateStatus(log.getId(), 2, "商品不存在");
+        } else {
+            changeLogMapper.updateStatus(log.getId(), 2, "库存不足");
+        }
         return false;
     }
 
