@@ -1,199 +1,180 @@
 package com.lubover.singularity.merchant.service.impl;
 
 import com.lubover.singularity.merchant.auth.AuthRequestContext;
-import com.lubover.singularity.merchant.dto.MerchantView;
-import com.lubover.singularity.merchant.dto.ProductView;
-import com.lubover.singularity.merchant.entity.Merchant;
-import com.lubover.singularity.merchant.entity.Product;
-import com.lubover.singularity.merchant.entity.ProductInventory;
+import com.lubover.singularity.merchant.client.ProductServiceClient;
+import com.lubover.singularity.merchant.dto.*;
+import com.lubover.singularity.merchant.entity.MerchantProduct;
 import com.lubover.singularity.merchant.exception.BusinessException;
 import com.lubover.singularity.merchant.exception.ErrorCode;
-import com.lubover.singularity.merchant.mapper.ProductMapper;
-import com.lubover.singularity.merchant.service.InventoryService;
-import com.lubover.singularity.merchant.service.MerchantService;
+import com.lubover.singularity.merchant.mapper.MerchantProductMapper;
 import com.lubover.singularity.merchant.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 public class ProductServiceImpl implements ProductService {
 
     @Autowired
-    private ProductMapper productMapper;
+    private ProductServiceClient productServiceClient;
 
     @Autowired
-    private MerchantService merchantService;
-
-    @Autowired
-    private InventoryService inventoryService;
+    private MerchantProductMapper merchantProductMapper;
 
     @Override
     @Transactional
-    public Product createProduct(Product product) {
+    public ProductView createProduct(CreateProductRequest request) {
         Long merchantId = AuthRequestContext.getMerchantId();
         if (merchantId == null) {
-            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
-        product.setMerchantId(merchantId);
-        if (product.getStatus() == null) {
-            product.setStatus(0);
-        }
-        if (product.getSortOrder() == null) {
-            product.setSortOrder(0);
-        }
-        if (product.getIsHot() == null) {
-            product.setIsHot(0);
-        }
-        if (product.getIsRecommend() == null) {
-            product.setIsRecommend(0);
-        }
-        if (product.getSalesCount() == null) {
-            product.setSalesCount(0L);
-        }
-        if (product.getViewCount() == null) {
-            product.setViewCount(0L);
+        if (request.getProductId() == null || request.getProductId().isEmpty()) {
+            request.setProductId(UUID.randomUUID().toString());
         }
 
-        productMapper.insert(product);
+        ApiResponse<ProductView> response = productServiceClient.createProduct(request);
+        if (!response.isSuccess()) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    response.getError() != null ? response.getError().getMessage() : "Create product failed");
+        }
 
-        inventoryService.createInventory(product.getId(), 0L);
+        ProductView productView = response.getData();
 
-        return product;
+        MerchantProduct merchantProduct = new MerchantProduct();
+        merchantProduct.setMerchantId(merchantId);
+        merchantProduct.setProductId(productView.getProductId());
+        merchantProduct.setStatus(request.getStatus() != null ? request.getStatus() : 1);
+        merchantProduct.setSortOrder(0);
+        merchantProductMapper.insert(merchantProduct);
+
+        productView.setMerchantStatus(merchantProduct.getStatus());
+        productView.setSortOrder(merchantProduct.getSortOrder());
+
+        return productView;
     }
 
     @Override
-    @Cacheable(value = "product", key = "#id")
-    public Product getProductById(Long id) {
-        Product product = productMapper.selectById(id);
-        if (product == null) {
+    @Transactional
+    public ProductView updateProduct(String productId, UpdateProductRequest request) {
+        Long merchantId = AuthRequestContext.getMerchantId();
+        if (merchantId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        MerchantProduct merchantProduct = merchantProductMapper.selectByMerchantIdAndProductId(merchantId, productId);
+        if (merchantProduct == null) {
             throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
         }
-        return product;
+
+        ApiResponse<ProductView> response = productServiceClient.updateProduct(productId, request);
+        if (!response.isSuccess()) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    response.getError() != null ? response.getError().getMessage() : "Update product failed");
+        }
+
+        ProductView productView = response.getData();
+        productView.setMerchantStatus(merchantProduct.getStatus());
+        productView.setSortOrder(merchantProduct.getSortOrder());
+
+        return productView;
     }
 
     @Override
-    public ProductView getProductViewById(Long id) {
-        Product product = getProductById(id);
-        return convertToView(product);
+    @Transactional
+    public void deleteProduct(String productId) {
+        Long merchantId = AuthRequestContext.getMerchantId();
+        if (merchantId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        MerchantProduct merchantProduct = merchantProductMapper.selectByMerchantIdAndProductId(merchantId, productId);
+        if (merchantProduct == null) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        ApiResponse<Void> response = productServiceClient.deleteProduct(productId);
+        if (!response.isSuccess()) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    response.getError() != null ? response.getError().getMessage() : "Delete product failed");
+        }
+
+        merchantProductMapper.delete(merchantId, productId);
     }
 
     @Override
-    public List<Product> getProductsByMerchantId(Long merchantId) {
-        return productMapper.selectByMerchantId(merchantId);
-    }
+    public ProductView getProduct(String productId) {
+        Long merchantId = AuthRequestContext.getMerchantId();
+        if (merchantId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
 
-    @Override
-    public List<Product> getProductsByMerchantIdWithStatus(Long merchantId, Integer status) {
-        return productMapper.selectByMerchantIdWithStatus(merchantId, status);
+        MerchantProduct merchantProduct = merchantProductMapper.selectByMerchantIdAndProductId(merchantId, productId);
+        if (merchantProduct == null) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        ApiResponse<ProductView> response = productServiceClient.getProduct(productId);
+        if (!response.isSuccess()) {
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    response.getError() != null ? response.getError().getMessage() : "Get product failed");
+        }
+
+        ProductView productView = response.getData();
+        productView.setMerchantStatus(merchantProduct.getStatus());
+        productView.setSortOrder(merchantProduct.getSortOrder());
+
+        return productView;
     }
 
     @Override
     public List<ProductView> getCurrentMerchantProducts() {
         Long merchantId = AuthRequestContext.getMerchantId();
         if (merchantId == null) {
-            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
-        List<Product> products = getProductsByMerchantId(merchantId);
-        return products.stream().map(this::convertToView).collect(Collectors.toList());
-    }
+        List<MerchantProduct> merchantProducts = merchantProductMapper.selectByMerchantId(merchantId);
+        List<ProductView> result = new ArrayList<>();
 
-    @Override
-    @Transactional
-    @CacheEvict(value = "product", key = "#product.id")
-    public Product updateProduct(Product product) {
-        Product existing = getProductById(product.getId());
-        
-        Long merchantId = AuthRequestContext.getMerchantId();
-        if (!existing.getMerchantId().equals(merchantId)) {
-            throw new BusinessException(ErrorCode.PRODUCT_NOT_BELONG_TO_MERCHANT);
-        }
-
-        productMapper.update(product);
-        return getProductById(product.getId());
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "product", key = "#id")
-    public void updateProductStatus(Long id, Integer status) {
-        Product product = getProductById(id);
-        
-        Long merchantId = AuthRequestContext.getMerchantId();
-        if (!product.getMerchantId().equals(merchantId)) {
-            throw new BusinessException(ErrorCode.PRODUCT_NOT_BELONG_TO_MERCHANT);
-        }
-
-        productMapper.updateStatus(id, status);
-    }
-
-    @Override
-    @Transactional
-    public void incrementSalesCount(Long id, Long count) {
-        productMapper.incrementSalesCount(id, count);
-    }
-
-    @Override
-    @Transactional
-    public void incrementViewCount(Long id, Long count) {
-        productMapper.incrementViewCount(id, count);
-    }
-
-    @Override
-    @Transactional
-    @CacheEvict(value = "product", key = "#id")
-    public void deleteProduct(Long id) {
-        Product product = getProductById(id);
-        
-        Long merchantId = AuthRequestContext.getMerchantId();
-        if (!product.getMerchantId().equals(merchantId)) {
-            throw new BusinessException(ErrorCode.PRODUCT_NOT_BELONG_TO_MERCHANT);
-        }
-
-        productMapper.deleteById(id);
-    }
-
-    private ProductView convertToView(Product product) {
-        ProductView view = new ProductView();
-        view.setId(product.getId());
-        view.setMerchantId(product.getMerchantId());
-        view.setProductName(product.getProductName());
-        view.setDescription(product.getDescription());
-        view.setPrice(product.getPrice());
-        view.setOriginalPrice(product.getOriginalPrice());
-        view.setImageUrl(product.getImageUrl());
-        view.setCategory(product.getCategory());
-        view.setStatus(product.getStatus());
-        view.setSortOrder(product.getSortOrder());
-        view.setIsHot(product.getIsHot());
-        view.setIsRecommend(product.getIsRecommend());
-        view.setSalesCount(product.getSalesCount());
-        view.setViewCount(product.getViewCount());
-        view.setCreateTime(product.getCreateTime());
-
-        try {
-            MerchantView merchant = merchantService.getMerchantViewById(product.getMerchantId());
-            view.setMerchantName(merchant.getShopName());
-        } catch (Exception e) {
-            view.setMerchantName("Unknown");
-        }
-
-        try {
-            ProductInventory inventory = inventoryService.getInventoryByProductId(product.getId());
-            if (inventory != null) {
-                view.setAvailableQuantity(inventory.getAvailableQuantity());
+        for (MerchantProduct mp : merchantProducts) {
+            try {
+                ApiResponse<ProductView> response = productServiceClient.getProduct(mp.getProductId());
+                if (response.isSuccess() && response.getData() != null) {
+                    ProductView productView = response.getData();
+                    productView.setMerchantStatus(mp.getStatus());
+                    productView.setSortOrder(mp.getSortOrder());
+                    result.add(productView);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to get product: " + mp.getProductId());
             }
-        } catch (Exception e) {
-            view.setAvailableQuantity(0L);
         }
 
-        return view;
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void updateProductStatus(String productId, Integer status) {
+        Long merchantId = AuthRequestContext.getMerchantId();
+        if (merchantId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        MerchantProduct merchantProduct = merchantProductMapper.selectByMerchantIdAndProductId(merchantId, productId);
+        if (merchantProduct == null) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        merchantProductMapper.updateStatus(merchantId, productId, status);
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setStatus(status);
+        productServiceClient.updateProduct(productId, updateRequest);
     }
 }

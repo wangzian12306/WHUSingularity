@@ -1,9 +1,8 @@
 package com.lubover.singularity.merchant.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
-public class ProductView {
+public class CreateProductRequest {
 
     private String productId;
     private String name;
@@ -13,11 +12,6 @@ public class ProductView {
     private String tags;
     private Integer status;
     private BigDecimal price;
-    private Long version;
-    private LocalDateTime createTime;
-    private LocalDateTime updateTime;
-    private Integer merchantStatus;
-    private Integer sortOrder;
 
     public String getProductId() {
         return productId;
@@ -81,45 +75,5 @@ public class ProductView {
 
     public void setPrice(BigDecimal price) {
         this.price = price;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
-
-    public void setVersion(Long version) {
-        this.version = version;
-    }
-
-    public LocalDateTime getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(LocalDateTime createTime) {
-        this.createTime = createTime;
-    }
-
-    public LocalDateTime getUpdateTime() {
-        return updateTime;
-    }
-
-    public void setUpdateTime(LocalDateTime updateTime) {
-        this.updateTime = updateTime;
-    }
-
-    public Integer getMerchantStatus() {
-        return merchantStatus;
-    }
-
-    public void setMerchantStatus(Integer merchantStatus) {
-        this.merchantStatus = merchantStatus;
-    }
-
-    public Integer getSortOrder() {
-        return sortOrder;
-    }
-
-    public void setSortOrder(Integer sortOrder) {
-        this.sortOrder = sortOrder;
     }
 }

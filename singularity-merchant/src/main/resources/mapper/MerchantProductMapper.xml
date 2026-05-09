@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lubover.singularity.merchant.mapper.MerchantProductMapper">
+
+    <resultMap id="MerchantProductResultMap" type="com.lubover.singularity.merchant.entity.MerchantProduct">
+        <id property="id" column="id"/>
+        <result property="merchantId" column="merchant_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="status" column="status"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.lubover.singularity.merchant.entity.MerchantProduct" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO merchant_product (merchant_id, product_id, status, sort_order)
+        VALUES (#{merchantId}, #{productId}, #{status}, #{sortOrder})
+    </insert>
+
+    <update id="update" parameterType="com.lubover.singularity.merchant.entity.MerchantProduct">
+        UPDATE merchant_product
+        SET status = #{status},
+            sort_order = #{sortOrder},
+            update_time = CURRENT_TIMESTAMP
+        WHERE merchant_id = #{merchantId} AND product_id = #{productId}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM merchant_product
+        WHERE merchant_id = #{merchantId} AND product_id = #{productId}
+    </delete>
+
+    <select id="selectByMerchantIdAndProductId" resultMap="MerchantProductResultMap">
+        SELECT * FROM merchant_product
+        WHERE merchant_id = #{merchantId} AND product_id = #{productId}
+    </select>
+
+    <select id="selectByMerchantId" resultMap="MerchantProductResultMap">
+        SELECT * FROM merchant_product
+        WHERE merchant_id = #{merchantId}
+        ORDER BY sort_order ASC, create_time DESC
+    </select>
+
+    <select id="selectProductIdsByMerchantId" resultType="java.lang.String">
+        SELECT product_id FROM merchant_product
+        WHERE merchant_id = #{merchantId}
+        ORDER BY sort_order ASC, create_time DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE merchant_product
+        SET status = #{status},
+            update_time = CURRENT_TIMESTAMP
+        WHERE merchant_id = #{merchantId} AND product_id = #{productId}
+    </update>
+
+</mapper>

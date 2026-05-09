@@ -39,12 +39,16 @@ mybatis:
 jwt:
   secret: whu-singularity-merchant-jwt-secret-key-2024
 
+product:
+  service:
+    url: http://localhost:8081
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true
