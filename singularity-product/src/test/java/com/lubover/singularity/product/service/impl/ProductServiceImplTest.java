@@ -1,7 +1,6 @@
 package com.lubover.singularity.product.service.impl;
 
 import com.lubover.singularity.product.cache.ProductCacheService;
-import com.lubover.singularity.product.cache.ProductCacheService.CacheState;
 import com.lubover.singularity.product.cache.ProductCacheService.DetailCacheResult;
 import com.lubover.singularity.product.cache.ProductCacheService.ListCacheResult;
 import com.lubover.singularity.product.dto.PageResponse;
@@ -19,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -118,7 +118,7 @@ class ProductServiceImplTest {
         assertNotNull(result.getRecords());
         verify(productMapper).selectList(any(), any(), any(), anyInt(), anyInt());
         verify(productMapper).countList(any(), any(), any());
-        verify(cacheService).putList(eq(ProductCacheService.buildListHash(1, null, null, 1, 10)), any(PageResponse.class));
+        verify(cacheService).putList(eq(ProductCacheService.buildListHash(1, null, null, 1, 10)), any());
         verify(cacheService).unlockList(anyString(), anyString());
     }
 

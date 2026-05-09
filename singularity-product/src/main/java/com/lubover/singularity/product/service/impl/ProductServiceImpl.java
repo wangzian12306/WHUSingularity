@@ -1,9 +1,11 @@
 package com.lubover.singularity.product.service.impl;
 
+import com.lubover.singularity.pipeline.ExecutionResult;
+import com.lubover.singularity.pipeline.Operation;
+import com.lubover.singularity.pipeline.PipelineExecutor;
+import com.lubover.singularity.pipeline.impl.DefaultPipelineExecutor;
+import com.lubover.singularity.pipeline.interceptor.MetricsTraceInterceptor;
 import com.lubover.singularity.product.cache.ProductCacheService;
-import com.lubover.singularity.product.cache.ProductCacheService.CacheState;
-import com.lubover.singularity.product.cache.ProductCacheService.DetailCacheResult;
-import com.lubover.singularity.product.cache.ProductCacheService.ListCacheResult;
 import com.lubover.singularity.product.dto.CreateProductRequest;
 import com.lubover.singularity.product.dto.PageResponse;
 import com.lubover.singularity.product.dto.ProductView;
@@ -14,17 +16,21 @@ import com.lubover.singularity.product.event.ProductUpdatedEvent;
 import com.lubover.singularity.product.exception.BusinessException;
 import com.lubover.singularity.product.exception.ErrorCode;
 import com.lubover.singularity.product.mapper.ProductMapper;
+import com.lubover.singularity.product.read.ProductDetailCacheInterceptor;
+import com.lubover.singularity.product.read.ProductDetailStampedeInterceptor;
+import com.lubover.singularity.product.read.ProductListCacheInterceptor;
+import com.lubover.singularity.product.read.ProductListStampedeInterceptor;
+import com.lubover.singularity.product.read.ProductReadOperations;
 import com.lubover.singularity.product.service.ProductService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,19 +40,29 @@ public class ProductServiceImpl implements ProductService {
 
     private static final int STATUS_OFFLINE = 0;
     private static final int STATUS_ONLINE = 1;
-    private static final long CACHE_LOCK_WAIT_MS = 50L;
 
     private final ProductMapper productMapper;
     private final ProductCacheService cacheService;
     private final ProductEventPublisher eventPublisher;
+    private final PipelineExecutor pipelineExecutor;
 
     public ProductServiceImpl(
             ProductMapper productMapper,
             ProductCacheService cacheService,
             ProductEventPublisher eventPublisher) {
+        this(productMapper, cacheService, eventPublisher, new DefaultPipelineExecutor());
+    }
+
+    @Autowired
+    public ProductServiceImpl(
+            ProductMapper productMapper,
+            ProductCacheService cacheService,
+            ProductEventPublisher eventPublisher,
+            PipelineExecutor pipelineExecutor) {
         this.productMapper = productMapper;
         this.cacheService = cacheService;
         this.eventPublisher = eventPublisher;
+        this.pipelineExecutor = pipelineExecutor;
     }
 
     @Override
@@ -87,18 +103,24 @@ public class ProductServiceImpl implements ProductService {
         validateProductId(productId);
         String key = productId.trim();
 
-        // 1. 读缓存（两级）
-        DetailCacheResult cacheResult = cacheService.getDetail(key);
-        if (cacheResult.getState() == CacheState.HIT_VALUE) {
-            log.info("product detail cache hit: productId={}", key);
-            return cacheResult.getValue();
-        }
-        if (cacheResult.getState() == CacheState.HIT_NULL) {
-            log.info("product detail null-marker hit: productId={}", key);
-            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
-        }
-
-        return loadDetailWithStampedeProtection(key);
+        Operation operation = ProductReadOperations.detail(key);
+        ExecutionResult<ProductView> result = pipelineExecutor.execute(
+                operation,
+                List.of(
+                        new MetricsTraceInterceptor<>(),
+                        new ProductDetailCacheInterceptor(cacheService),
+                        new ProductDetailStampedeInterceptor(cacheService)),
+                context -> {
+                    log.info("product detail cache miss, querying db with pipeline: productId={}", key);
+                    Product product = productMapper.selectByProductId(key);
+                    if (product == null) {
+                        cacheService.putDetail(key, null);
+                        log.info("product detail db miss, cached null marker: productId={}", key);
+                        throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+                    }
+                    context.setResult(ExecutionResult.success(ProductView.from(product)));
+                });
+        return result.getData();
     }
 
     @Override
@@ -160,19 +182,32 @@ public class ProductServiceImpl implements ProductService {
 
         String queryHash = ProductCacheService.buildListHash(status, normalizedCategory, normalizedKeyword, normalizedPageNo, normalizedPageSize);
 
-        // 1. 读缓存
-        ListCacheResult cacheResult = cacheService.getList(queryHash);
-        if (cacheResult.getState() == CacheState.HIT_VALUE) {
-            log.info("product list cache hit: hash={}", queryHash);
-            return cacheResult.getValue();
-        }
-        if (cacheResult.getState() == CacheState.HIT_NULL) {
-            log.info("product list null-marker hit: hash={}", queryHash);
-            return PageResponse.of(List.of(), 0, normalizedPageNo, normalizedPageSize);
-        }
-
-        return loadListWithStampedeProtection(status, normalizedCategory, normalizedKeyword,
-            normalizedPageNo, normalizedPageSize, queryHash);
+        Operation operation = ProductReadOperations.list(
+                queryHash,
+                status,
+                normalizedCategory,
+                normalizedKeyword,
+                normalizedPageNo,
+                normalizedPageSize);
+        ExecutionResult<PageResponse<ProductView>> result = pipelineExecutor.execute(
+                operation,
+                List.of(
+                        new MetricsTraceInterceptor<>(),
+                        new ProductListCacheInterceptor(cacheService),
+                        new ProductListStampedeInterceptor(cacheService)),
+                context -> {
+                    log.info("product list cache miss, querying db with pipeline: hash={}", queryHash);
+                    int offset = (normalizedPageNo - 1) * normalizedPageSize;
+                    List<ProductView> views = productMapper
+                            .selectList(status, normalizedCategory, normalizedKeyword, offset, normalizedPageSize)
+                            .stream()
+                            .map(ProductView::from)
+                            .collect(Collectors.toList());
+                    long total = productMapper.countList(status, normalizedCategory, normalizedKeyword);
+                    context.setResult(ExecutionResult.success(
+                            PageResponse.of(views, total, normalizedPageNo, normalizedPageSize)));
+                });
+        return result.getData();
     }
 
     // ── Validation ────────────────────────────────────────────────────────────
@@ -253,117 +288,6 @@ public class ProductServiceImpl implements ProductService {
     private void validatePrice(BigDecimal price) {
         if (price == null || price.compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessException(ErrorCode.REQ_INVALID_PARAM, "price is invalid");
-        }
-    }
-
-    private ProductView loadDetailWithStampedeProtection(String key) {
-        String lockToken = UUID.randomUUID().toString();
-        while (true) {
-            if (cacheService.tryLockDetail(key, lockToken)) {
-                try {
-                    DetailCacheResult cacheResult = cacheService.getDetail(key);
-                    if (cacheResult.getState() == CacheState.HIT_VALUE) {
-                        log.info("product detail cache filled by another request: productId={}", key);
-                        return cacheResult.getValue();
-                    }
-                    if (cacheResult.getState() == CacheState.HIT_NULL) {
-                        log.info("product detail null-marker filled by another request: productId={}", key);
-                        throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
-                    }
-
-                    log.info("product detail cache miss, querying db with lock: productId={}", key);
-                    Product product = productMapper.selectByProductId(key);
-                    if (product == null) {
-                        cacheService.putDetail(key, null);
-                        log.info("product detail db miss, cached null marker: productId={}", key);
-                        throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
-                    }
-
-                    ProductView view = ProductView.from(product);
-                    cacheService.putDetail(key, view);
-                    return view;
-                } finally {
-                    cacheService.unlockDetail(key, lockToken);
-                }
-            }
-
-            DetailCacheResult cacheResult = cacheService.getDetail(key);
-            if (cacheResult.getState() == CacheState.HIT_VALUE) {
-                log.info("product detail cache recovered while waiting: productId={}", key);
-                return cacheResult.getValue();
-            }
-            if (cacheResult.getState() == CacheState.HIT_NULL) {
-                log.info("product detail null-marker recovered while waiting: productId={}", key);
-                throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
-            }
-
-            sleepBriefly();
-        }
-    }
-
-    private PageResponse<ProductView> loadListWithStampedeProtection(
-            Integer status,
-            String category,
-            String keyword,
-            int pageNo,
-            int pageSize,
-            String queryHash) {
-        String lockToken = UUID.randomUUID().toString();
-        while (true) {
-            if (cacheService.tryLockList(queryHash, lockToken)) {
-                try {
-                    ListCacheResult cacheResult = cacheService.getList(queryHash);
-                    if (cacheResult.getState() == CacheState.HIT_VALUE) {
-                        log.info("product list cache filled by another request: hash={}", queryHash);
-                        return cacheResult.getValue();
-                    }
-                    if (cacheResult.getState() == CacheState.HIT_NULL) {
-                        log.info("product list null-marker filled by another request: hash={}", queryHash);
-                        return PageResponse.of(List.of(), 0, pageNo, pageSize);
-                    }
-
-                    log.info("product list cache miss, querying db with lock: hash={}", queryHash);
-                    int offset = (pageNo - 1) * pageSize;
-                    List<ProductView> views = productMapper
-                            .selectList(status, category, keyword, offset, pageSize)
-                            .stream()
-                            .map(ProductView::from)
-                            .collect(Collectors.toList());
-                    long total = productMapper.countList(status, category, keyword);
-                    PageResponse<ProductView> page = PageResponse.of(views, total, pageNo, pageSize);
-
-                    if (views.isEmpty()) {
-                        cacheService.putList(queryHash, null);
-                        log.info("product list db miss, cached null marker: hash={}", queryHash);
-                        return page;
-                    }
-                    cacheService.putList(queryHash, page);
-                    return page;
-                } finally {
-                    cacheService.unlockList(queryHash, lockToken);
-                }
-            }
-
-            ListCacheResult cacheResult = cacheService.getList(queryHash);
-            if (cacheResult.getState() == CacheState.HIT_VALUE) {
-                log.info("product list cache recovered while waiting: hash={}", queryHash);
-                return cacheResult.getValue();
-            }
-            if (cacheResult.getState() == CacheState.HIT_NULL) {
-                log.info("product list null-marker recovered while waiting: hash={}", queryHash);
-                return PageResponse.of(List.of(), 0, pageNo, pageSize);
-            }
-
-            sleepBriefly();
-        }
-    }
-
-    private void sleepBriefly() {
-        try {
-            Thread.sleep(CACHE_LOCK_WAIT_MS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "cache lock wait interrupted");
         }
     }
 
