@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Button, Row, Col, Badge, Spin, Alert, Space, Typography, message } from 'antd'
+import { Card, Button, Row, Col, Badge, Spin, Alert, Space, Typography, message, Empty } from 'antd'
 import { useAuth } from '../contexts/AuthContext'
+import { useMerchantAuth } from '../contexts/MerchantAuthContext'
 import { stockApi } from '../api/stock'
 import { orderApi } from '../api/order'
 import { registerHomeTools, unregisterHomeTools } from '../webmcp/tools'
@@ -19,6 +20,7 @@ interface PollingOrder {
 
 export default function Home() {
   const { user } = useAuth()
+  const { merchant } = useMerchantAuth()
   const navigate = useNavigate()
   const [stocks, setStocks] = useState<Stock[]>([])
   const [loading, setLoading] = useState(false)
@@ -146,6 +148,29 @@ export default function Home() {
     return { text: '订单已创建，请前往支付', color: 'warning' as const }
   }
 
+  if (merchant) {
+    return (
+      <div>
+        <Title level={4}>商户中心</Title>
+        <Card>
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div style={{ fontSize: 16 }}>
+              欢迎回来，<Text strong>{merchant.shopName ?? merchant.username}</Text>！
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <Button type="primary" onClick={() => navigate('/merchant/products')}>
+                管理商品
+              </Button>
+              <Button style={{ marginLeft: 8 }} onClick={() => navigate('/merchant/center')}>
+                商户设置
+              </Button>
+            </div>
+          </Space>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div>
       <Title level={4}>秒杀商品</Title>
@@ -181,7 +206,7 @@ export default function Home() {
           ))}
         </Row>
         {stocks.length === 0 && !loading && (
-          <Text type="secondary">暂无商品</Text>
+          <Empty description="暂无商品" />
         )}
       </Spin>
 
@@ -200,7 +225,7 @@ export default function Home() {
                     isPending ? (
                       <span>
                         {text}{' '}
-                        <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate('/user-center')}>
+                        <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate('/user')}>
                           前往用户中心支付
                         </Button>
                       </span>
