@@ -1,103 +1,132 @@
-# singularity-product 后端边界说明
+# singularity-product Backend Delivery Notes
 
-## 1. 模块定位
+## Scope
 
-`singularity-product` 负责商品主数据管理，是独立微服务。
+`singularity-product` owns product master data. It does not deduct stock and does not create orders. Stock deduction remains in `singularity-stock`; order lifecycle remains in `singularity-order`.
 
-## 2. 当前职责（Phase 0）
+## Implemented Status
 
-- 提供独立启动入口与服务注册能力（Nacos Discovery）。
-- 提供基础连通性接口：`GET /api/product/ping`。
-- 对齐工程基线：Spring Boot + MyBatis XML + Flyway + Nacos 配置中心。
+| Phase | Status | Evidence |
+|---|---|---|
+| Phase 0 Architecture baseline | Done | `singularity-product` module, Spring Boot app, Nacos bootstrap, MyBatis XML, Flyway config |
+| Phase 1 Data model | Done | `db/migration/V1__Init_Product_Module.sql`, `V2__Create_Product_Tables.sql`, dev seed script |
+| Phase 2 CRUD API | Done | Create/detail/update/delete/list endpoints with DTO isolation and unified response |
+| Phase 3 Cache baseline | Done | Caffeine + Redis cache-aside for detail/list, null marker, cache locks |
+| Phase 4 Distributed cache invalidation | Done | RocketMQ broadcast `ProductUpdatedEvent`, Redis event dedup, local cache eviction |
+| Phase 5 Integration and observability | Done | Stock aggregation view, status switch API, read/event/stock metric snapshot |
+| Phase 6 Test and delivery | Done with local limitation | Unit tests added; Python API integration script added. Maven execution is blocked on this machine because `mvn` is not in PATH. |
 
-## 3. 不在当前阶段职责内
+## API Contract
 
-- 不处理库存扣减与回补（由 `singularity-stock` 负责）。
-- 不处理下单事务（由 `singularity-order` 负责）。
-- 不包含商品业务 CRUD（在 Phase 2 实现）。
+Base path: `/api/product`
 
-## 4. 与其他服务交互约束
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/product` | Create product |
+| `GET` | `/api/product/{productId}` | Query product detail |
+| `GET` | `/api/product/{productId}/with-stock` | Query product detail plus stock view from `singularity-stock` |
+| `PUT` | `/api/product/{productId}` | Update product fields |
+| `PATCH` | `/api/product/{productId}/status?status=0|1` | Switch product offline/online status |
+| `DELETE` | `/api/product/{productId}` | Logical delete |
+| `GET` | `/api/product/list?status=&category=&keyword=&pageNo=&pageSize=` | Paged query |
+| `GET` | `/api/product/metrics` | Simple product read/event/stock metric snapshot |
 
-- 与 `singularity-stock`：Phase 5 做库存视图聚合（读，OpenFeign）。
-- 与 `singularity-order`：后续提供商品信息查询能力，不承载订单状态流转。
-- 与 `singularity-user`：不直接依赖用户账户逻辑。
+Success response:
 
-## 5. 运行与配置约定
-
-- 服务名：`singularity-product`
-- 默认端口：`8087`
-- 数据库：`singularity_product`
-- Flyway 目录：`classpath:db/migration`
-- Mapper 目录：`classpath:mapper/*.xml`
-
-## 6. Phase 1 完成状态
-
-- 已完成商品主表结构与索引设计落地。
-- 已完成 Flyway 迁移版本：`V1__Init_Product_Module.sql`、`V2__Create_Product_Tables.sql`。
-
-## 7. Phase 2 API 契约（已实现）
-
-- `POST /api/product`：新增商品
-- `GET /api/product/{productId}`：查询商品详情
-- `PUT /api/product/{productId}`：更新商品
-- `DELETE /api/product/{productId}`：逻辑删除商品
-- `GET /api/product/list`：分页查询（支持 `status/category/keyword/pageNo/pageSize`）
-
-统一响应格式：
-
-- 成功：`{ "success": true, "data": ... }`
-- 失败：`{ "success": false, "error": { "code": "...", "message": "..." } }`
-
-错误码（Phase 2）：
-
-- `REQ_INVALID_PARAM`
-- `PRODUCT_NOT_FOUND`
-- `PRODUCT_ALREADY_EXISTS`
-- `INTERNAL_ERROR`
-
-## 8. 验证基线
-
-- 通过 Docker Compose 启动 `singularity-product-0`。
-- 通过接口验证新增、查询、更新、删除、分页查询。
-- 通过数据库回查确认逻辑删除与分页过滤行为正确。
-
-## 9. Phase 3 缓存体系（已实现）
-
-### 架构
-
-Caffeine 本地缓存 + Redis 远程缓存，Cache-Aside 模式。
-
-```
-读路径：本地 Caffeine → Redis → DB（回填两级）
-写路径：DB 写完后删除 detail 缓存 + 批量失效 list 缓存
+```json
+{ "success": true, "data": {} }
 ```
 
-### 缓存 Key 规范
+Failure response:
 
-| 类型 | Key 格式 |
+```json
+{ "success": false, "error": { "code": "PRODUCT_NOT_FOUND", "message": "product not found" } }
+```
+
+## Cache Design
+
+Detail key: `product:detail:{productId}`
+
+List key: `product:list:{queryHash}`
+
+Read path:
+
+```text
+ProductController
+  -> ProductServiceImpl
+  -> singularity-core PipelineExecutor
+  -> MetricsTraceInterceptor
+  -> ProductDetail/ListCacheInterceptor
+  -> ProductDetail/ListStampedeInterceptor
+  -> ProductMapper DB fallback
+  -> cache backfill
+```
+
+Write path:
+
+```text
+DB write
+  -> evict local + Redis detail cache
+  -> evict local + Redis list cache
+  -> publish ProductUpdatedEvent after transaction commit
+  -> every product instance consumes broadcast event
+  -> local cache eviction with Redis eventId dedup
+```
+
+Redis TTL:
+
+| Cache | TTL |
 |---|---|
-| 商品详情 | `product:detail:{productId}` |
-| 商品列表 | `product:list:{queryHash}`（queryHash 为查询参数 hashCode） |
+| Detail value | 30 minutes |
+| List value | 10 minutes |
+| Null marker | 60 seconds |
+| Cache stampede lock | 10 seconds |
 
-### TTL 配置
+## Stock Integration
 
-| 缓存层 | detail TTL | list TTL | 空值 TTL（防穿透） |
-|---|---|---|---|
-| Caffeine | 5 分钟（全局写后过期） | 同上 | 同上 |
-| Redis | 30 分钟 | 10 分钟 | 60 秒 |
+`GET /api/product/{productId}/with-stock` first reads product detail through the read pipeline, then calls `singularity-stock` by OpenFeign:
 
-### 穿透保护
+```text
+singularity-product -> StockClient -> singularity-stock /api/stock/{productId}
+```
 
-- 查询 DB 无结果时，缓存空标记 `__NULL__`，TTL 60s，避免恶意穿透。
+If the stock service is temporarily unavailable, product data is still returned and `stock` is `null`; the failure is counted in `/api/product/metrics`.
 
-### 交付物
+## Observability
 
-- `config/CacheConfig.java`：Caffeine Bean、RedisTemplate Bean、ObjectMapper Bean
-- `cache/ProductCacheService.java`：两级缓存读写/失效方法
-- `service/impl/ProductServiceImpl.java`：所有读写路径均接入缓存
+`GET /api/product/metrics` returns an in-memory snapshot:
 
-### 验收标准
+- `productReadTotal`
+- `productReadBySource`
+- `eventSendSuccessTotal`
+- `eventSendFailureTotal`
+- `eventConsumeSuccessTotal`
+- `eventConsumeFailureTotal`
+- `stockQuerySuccessTotal`
+- `stockQueryFailureTotal`
 
-- 连续两次 GET 相同 productId，第二次命中本地缓存（日志可见 `cache hit [local]`）。
-- 更新/删除商品后，下一次 GET 命中 DB 而非缓存（日志无 `cache hit`）。
-- 查询 DB 不存在的 productId，返回 `PRODUCT_NOT_FOUND`；再次查询不打 DB（空值缓存命中）。
+Actuator Prometheus is also exposed by application config at `/actuator/prometheus`.
+
+## Verification
+
+Recommended automated checks:
+
+```powershell
+mvn -pl singularity-product -am test
+python -m unittest discover -s api-integration-tests-python/tests -p "test_product_api_integration.py" -v
+```
+
+Current local verification:
+
+- `git diff --check`: passed.
+- `mvn -pl singularity-product -am test`: not executed because `mvn` is not available in this shell.
+
+## Acceptance Checklist
+
+- Product CRUD can be exercised through the gateway.
+- Repeated detail/list reads are served by cache after first DB fallback.
+- Update/status/delete invalidates detail and list caches.
+- Product update events are broadcast by RocketMQ and consumed in broadcasting mode by every product instance.
+- Duplicate product events are ignored by Redis `eventId` dedup keys.
+- Product detail can include a stock view without moving stock ownership into product service.
+- Delivery artifacts include unit tests, Python integration script, and this backend summary.
