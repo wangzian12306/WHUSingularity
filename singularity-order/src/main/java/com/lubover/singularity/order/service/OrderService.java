@@ -12,6 +12,8 @@ public interface OrderService {
      */
     Result snagOrder(Actor actor);
 
+    Result snagOrderByProduct(Actor actor, String productId);
+
     /**
      * payOrder 对一笔已创建的订单发起支付，扣除用户余额并将订单状态更新为 PAID
      * @param orderId 订单ID

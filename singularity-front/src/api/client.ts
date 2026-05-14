@@ -8,7 +8,14 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const url = config.url ?? ''
-  const token = url.startsWith('/api/merchant')
+  const publicPaths = ['/api/product/public']
+  const isPublicApi = publicPaths.some(p => url.startsWith(p))
+  if (isPublicApi) {
+    return config
+  }
+  const merchantPaths = ['/api/merchant', '/api/product', '/api/inventory']
+  const isMerchantApi = merchantPaths.some(p => url.startsWith(p))
+  const token = isMerchantApi
     ? localStorage.getItem('merchantAccessToken')
     : localStorage.getItem('accessToken')
   if (token) {
@@ -22,7 +29,9 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url = error.config?.url ?? ''
-      if (url.startsWith('/api/merchant')) {
+      const merchantPaths = ['/api/merchant', '/api/product', '/api/inventory']
+      const isMerchantApi = merchantPaths.some(p => url.startsWith(p))
+      if (isMerchantApi) {
         localStorage.removeItem('merchantAccessToken')
         localStorage.removeItem('merchantExpiresIn')
       } else {

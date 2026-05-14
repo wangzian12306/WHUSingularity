@@ -83,6 +83,7 @@ export interface InitStockRequest {
 
 export interface SnagOrderRequest {
   userId: string
+  productId?: string
 }
 
 export interface SnagOrderResponse {
@@ -174,74 +175,55 @@ export interface UpdateMerchantRequest {
 }
 
 // Product
-export interface Product {
-  id: number
-  merchantId: number
-  name: string
-  description: string | null
-  price: number
-  image: string | null
-  category: string | null
-  status: number
-  createTime: string
-  updateTime: string
-}
-
 export interface ProductView {
-  id: number
-  merchantId: number
+  productId: string
   name: string
-  description: string | null
-  price: number
-  image: string | null
+  subtitle: string | null
+  mainImage: string | null
   category: string | null
+  tags: string | null
   status: number
+  price: number
+  version: number
   createTime: string
   updateTime: string
+  merchantStatus: number
+  sortOrder: number
+  totalQuantity: number | null
+  availableQuantity: number | null
 }
 
 export interface CreateProductRequest {
+  productId?: string
   name: string
-  description?: string
-  price: number
-  image?: string
+  subtitle?: string
+  mainImage?: string
   category?: string
+  tags?: string
+  status?: number
+  price: number
+  totalQuantity?: number
 }
 
 export interface UpdateProductRequest {
   name?: string
-  description?: string
-  price?: number
-  image?: string
+  subtitle?: string
+  mainImage?: string
   category?: string
+  tags?: string
   status?: number
+  price?: number
+  totalQuantity?: number
 }
 
-// Product Inventory
-export interface ProductInventory {
-  id: number
-  productId: number
-  availableQuantity: number
-  lockedQuantity: number
-  totalQuantity: number
-  version: number
-  createTime: string
-  updateTime: string
-}
-
-export interface InventoryChangeLog {
-  id: number
-  productId: number
-  merchantId: number
-  changeQuantity: number
-  changeType: number
-  beforeQuantity: number
-  afterQuantity: number
-  remark: string | null
-  createTime: string
-}
-
-export interface AdjustInventoryRequest {
-  quantity: number
-  remark?: string
+export interface PageResponse<T> {
+  records?: T[]
+  content?: T[]
+  totalElements?: number
+  totalPages?: number
+  total?: number
+  page?: number
+  pageNo?: number
+  size?: number
+  pageSize?: number
 }

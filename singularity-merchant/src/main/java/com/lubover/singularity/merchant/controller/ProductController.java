@@ -1,8 +1,6 @@
 package com.lubover.singularity.merchant.controller;
 
-import com.lubover.singularity.merchant.dto.ApiResponse;
-import com.lubover.singularity.merchant.dto.ProductView;
-import com.lubover.singularity.merchant.entity.Product;
+import com.lubover.singularity.merchant.dto.*;
 import com.lubover.singularity.merchant.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -18,42 +16,41 @@ public class ProductController {
     private ProductService productService;
 
     @PostMapping
-    public ApiResponse<ProductView> createProduct(@RequestBody Product product) {
-        Product created = productService.createProduct(product);
-        ProductView view = productService.getProductViewById(created.getId());
-        return ApiResponse.success(view);
+    public ApiResponse<ProductView> createProduct(@RequestBody CreateProductRequest request) {
+        ProductView product = productService.createProduct(request);
+        return ApiResponse.success(product);
     }
 
     @GetMapping("/list")
     public ApiResponse<List<ProductView>> getProducts() {
-        List<ProductView> views = productService.getCurrentMerchantProducts();
-        return ApiResponse.success(views);
+        List<ProductView> products = productService.getCurrentMerchantProducts();
+        return ApiResponse.success(products);
     }
 
-    @GetMapping("/{id}")
-    public ApiResponse<ProductView> getProduct(@PathVariable Long id) {
-        ProductView view = productService.getProductViewById(id);
-        return ApiResponse.success(view);
+    @GetMapping("/{productId}")
+    public ApiResponse<ProductView> getProduct(@PathVariable("productId") String productId) {
+        ProductView product = productService.getProduct(productId);
+        return ApiResponse.success(product);
     }
 
-    @PutMapping("/{id}")
-    public ApiResponse<ProductView> updateProduct(@PathVariable Long id, @RequestBody Product product) {
-        product.setId(id);
-        Product updated = productService.updateProduct(product);
-        ProductView view = productService.getProductViewById(updated.getId());
-        return ApiResponse.success(view);
+    @PutMapping("/{productId}")
+    public ApiResponse<ProductView> updateProduct(@PathVariable("productId") String productId,
+                                                  @RequestBody UpdateProductRequest request) {
+        ProductView product = productService.updateProduct(productId, request);
+        return ApiResponse.success(product);
     }
 
-    @PutMapping("/{id}/status")
-    public ApiResponse<Void> updateProductStatus(@PathVariable Long id, @RequestBody Map<String, Integer> request) {
+    @PutMapping("/{productId}/status")
+    public ApiResponse<Void> updateProductStatus(@PathVariable("productId") String productId,
+                                                 @RequestBody Map<String, Integer> request) {
         Integer status = request.get("status");
-        productService.updateProductStatus(id, status);
+        productService.updateProductStatus(productId, status);
         return ApiResponse.successMessage("Status updated");
     }
 
-    @DeleteMapping("/{id}")
-    public ApiResponse<Void> deleteProduct(@PathVariable Long id) {
-        productService.deleteProduct(id);
+    @DeleteMapping("/{productId}")
+    public ApiResponse<Void> deleteProduct(@PathVariable("productId") String productId) {
+        productService.deleteProduct(productId);
         return ApiResponse.successMessage("Product deleted");
     }
 }

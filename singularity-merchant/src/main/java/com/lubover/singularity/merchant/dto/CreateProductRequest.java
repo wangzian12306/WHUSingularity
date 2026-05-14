@@ -1,12 +1,10 @@
-package com.lubover.singularity.product.dto;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+package com.lubover.singularity.merchant.dto;
 
 import java.math.BigDecimal;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class UpdateProductRequest {
+public class CreateProductRequest {
 
+    private String productId;
     private String name;
     private String subtitle;
     private String mainImage;
@@ -14,6 +12,15 @@ public class UpdateProductRequest {
     private String tags;
     private Integer status;
     private BigDecimal price;
+    private Long totalQuantity;
+
+    public String getProductId() {
+        return productId;
+    }
+
+    public void setProductId(String productId) {
+        this.productId = productId;
+    }
 
     public String getName() {
         return name;
@@ -69,5 +76,13 @@ public class UpdateProductRequest {
 
     public void setPrice(BigDecimal price) {
         this.price = price;
+    }
+
+    public Long getTotalQuantity() {
+        return totalQuantity;
+    }
+
+    public void setTotalQuantity(Long totalQuantity) {
+        this.totalQuantity = totalQuantity;
     }
 }

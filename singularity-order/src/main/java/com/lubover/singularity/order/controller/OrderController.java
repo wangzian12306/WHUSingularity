@@ -1,16 +1,25 @@
 package com.lubover.singularity.order.controller;
 
-import com.lubover.singularity.api.Actor;
-import com.lubover.singularity.api.Result;
-import com.lubover.singularity.order.entity.Order;
-import com.lubover.singularity.order.mapper.OrderMapper;
-import com.lubover.singularity.order.service.OrderService;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.lubover.singularity.api.Actor;
+import com.lubover.singularity.api.Result;
+import com.lubover.singularity.order.entity.Order;
+import com.lubover.singularity.order.mapper.OrderMapper;
+import com.lubover.singularity.order.registry.SlotRegistry;
+import com.lubover.singularity.order.service.OrderService;
 
 @RestController
 @RequestMapping("/api/order")
@@ -18,10 +27,12 @@ public class OrderController {
 
     private final OrderService orderService;
     private final OrderMapper orderMapper;
+    private final SlotRegistry slotRegistry;
 
-    public OrderController(OrderService orderService, OrderMapper orderMapper) {
+    public OrderController(OrderService orderService, OrderMapper orderMapper, SlotRegistry slotRegistry) {
         this.orderService = orderService;
         this.orderMapper = orderMapper;
+        this.slotRegistry = slotRegistry;
     }
 
     @PostMapping("/snag")
@@ -31,7 +42,15 @@ public class OrderController {
             return failure("userId is required");
         }
 
-        Result result = orderService.snagOrder(new SimpleActor(userId));
+        String productId = request.get("productId") == null ? null : String.valueOf(request.get("productId"));
+
+        Result result;
+        if (productId != null && !productId.isBlank()) {
+            result = orderService.snagOrderByProduct(new SimpleActor(userId), productId);
+        } else {
+            result = orderService.snagOrder(new SimpleActor(userId));
+        }
+
         if (result.isSuccess()) {
             Map<String, Object> data = new HashMap<>();
             data.put("orderId", result.getMessage());
@@ -106,6 +125,26 @@ public class OrderController {
         data.put("page", page);
         data.put("size", size);
         return success(data);
+    }
+
+    @PostMapping("/slot/register")
+    public Map<String, Object> registerSlot(@RequestBody Map<String, Object> request) {
+        String slotId = request.get("slotId") == null ? null : String.valueOf(request.get("slotId"));
+        String redisKey = request.get("redisKey") == null ? null : String.valueOf(request.get("redisKey"));
+        String productId = request.get("productId") == null ? null : String.valueOf(request.get("productId"));
+
+        if (slotId == null || slotId.isBlank()) {
+            return failure("slotId is required");
+        }
+        if (redisKey == null || redisKey.isBlank()) {
+            return failure("redisKey is required");
+        }
+        if (productId == null || productId.isBlank()) {
+            return failure("productId is required");
+        }
+
+        slotRegistry.addSlot(slotId, redisKey, productId);
+        return success(Map.of("slotId", slotId, "redisKey", redisKey, "productId", productId));
     }
 
     private Map<String, Object> success(Object data) {
