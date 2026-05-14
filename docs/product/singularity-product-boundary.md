@@ -11,7 +11,7 @@
 | Phase 0 Architecture baseline | Done | `singularity-product` module, Spring Boot app, Nacos bootstrap, MyBatis XML, Flyway config |
 | Phase 1 Data model | Done | `db/migration/V1__Init_Product_Module.sql`, `V2__Create_Product_Tables.sql`, dev seed script |
 | Phase 2 CRUD API | Done | Create/detail/update/delete/list endpoints with DTO isolation and unified response |
-| Phase 3 Cache baseline | Done | Caffeine + Redis cache-aside for detail/list, null marker, cache locks |
+| Phase 3 Cache baseline | Done | Caffeine + Redis cache-aside for detail/list, null marker, cache locks; read governance is now reused from `singularity-core` |
 | Phase 4 Distributed cache invalidation | Done | RocketMQ broadcast `ProductUpdatedEvent`, Redis event dedup, local cache eviction |
 | Phase 5 Integration and observability | Done | Stock aggregation view, status switch API, read/event/stock metric snapshot |
 | Phase 6 Test and delivery | Done with local limitation | Unit tests added; Python API integration script added. Maven execution is blocked on this machine because `mvn` is not in PATH. |
@@ -56,8 +56,8 @@ ProductController
   -> ProductServiceImpl
   -> singularity-core PipelineExecutor
   -> MetricsTraceInterceptor
-  -> ProductDetail/ListCacheInterceptor
-  -> ProductDetail/ListStampedeInterceptor
+  -> ReadThroughCacheInterceptor
+  -> CacheStampedeGuardInterceptor
   -> ProductMapper DB fallback
   -> cache backfill
 ```
@@ -119,7 +119,8 @@ python -m unittest discover -s api-integration-tests-python/tests -p "test_produ
 Current local verification:
 
 - `git diff --check`: passed.
-- `mvn -pl singularity-product -am test`: not executed because `mvn` is not available in this shell.
+- `mvn -pl singularity-product -am test`: passed, 18 tests across `singularity-core` and `singularity-product`.
+- `python -m py_compile api-integration-tests-python/tests/test_product_api_integration.py`: passed.
 
 ## Acceptance Checklist
 
