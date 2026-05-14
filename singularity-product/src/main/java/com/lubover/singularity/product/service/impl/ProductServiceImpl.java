@@ -4,7 +4,12 @@ import com.lubover.singularity.pipeline.ExecutionResult;
 import com.lubover.singularity.pipeline.Operation;
 import com.lubover.singularity.pipeline.PipelineExecutor;
 import com.lubover.singularity.pipeline.impl.DefaultPipelineExecutor;
+import com.lubover.singularity.pipeline.interceptor.CacheStampedeGuardInterceptor;
 import com.lubover.singularity.pipeline.interceptor.MetricsTraceInterceptor;
+import com.lubover.singularity.pipeline.interceptor.ReadThroughCacheInterceptor;
+import com.lubover.singularity.pipeline.read.CacheNullHitHandler;
+import com.lubover.singularity.pipeline.read.ReadCache;
+import com.lubover.singularity.pipeline.read.ReadLockManager;
 import com.lubover.singularity.product.cache.ProductCacheService;
 import com.lubover.singularity.product.dto.ApiResponse;
 import com.lubover.singularity.product.dto.CreateProductRequest;
@@ -21,12 +26,11 @@ import com.lubover.singularity.product.exception.ErrorCode;
 import com.lubover.singularity.product.feign.StockClient;
 import com.lubover.singularity.product.mapper.ProductMapper;
 import com.lubover.singularity.product.observability.ProductObservabilityService;
-import com.lubover.singularity.product.read.ProductDetailCacheInterceptor;
-import com.lubover.singularity.product.read.ProductDetailStampedeInterceptor;
-import com.lubover.singularity.product.read.ProductListCacheInterceptor;
-import com.lubover.singularity.product.read.ProductListStampedeInterceptor;
+import com.lubover.singularity.product.read.ProductDetailReadCache;
+import com.lubover.singularity.product.read.ProductListReadCache;
 import com.lubover.singularity.product.read.ProductReadMeta;
 import com.lubover.singularity.product.read.ProductReadOperations;
+import com.lubover.singularity.product.read.ProductReadLockManager;
 import com.lubover.singularity.product.service.ProductService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +50,8 @@ public class ProductServiceImpl implements ProductService {
 
     private static final int STATUS_OFFLINE = 0;
     private static final int STATUS_ONLINE = 1;
+    private static final int CACHE_LOCK_MAX_WAIT_ATTEMPTS = 100;
+    private static final long CACHE_LOCK_WAIT_MS = 50L;
 
     private final ProductMapper productMapper;
     private final ProductCacheService cacheService;
@@ -121,12 +127,19 @@ public class ProductServiceImpl implements ProductService {
         String key = productId.trim();
 
         Operation operation = ProductReadOperations.detail(key);
+        ReadCache<ProductView> readCache = new ProductDetailReadCache(cacheService);
+        ReadLockManager lockManager = new ProductReadLockManager(cacheService);
         ExecutionResult<ProductView> result = pipelineExecutor.execute(
                 operation,
                 List.of(
                         new MetricsTraceInterceptor<>(),
-                        new ProductDetailCacheInterceptor(cacheService),
-                        new ProductDetailStampedeInterceptor(cacheService)),
+                        new ReadThroughCacheInterceptor<>(readCache, detailNullHitHandler()),
+                        new CacheStampedeGuardInterceptor<>(
+                                lockManager,
+                                readCache,
+                                detailNullHitHandler(),
+                                CACHE_LOCK_MAX_WAIT_ATTEMPTS,
+                                CACHE_LOCK_WAIT_MS)),
                 context -> {
                     log.info("product detail cache miss, querying db with pipeline: productId={}", key);
                     Product product = productMapper.selectByProductId(key);
@@ -137,6 +150,7 @@ public class ProductServiceImpl implements ProductService {
                     }
                     context.setResult(ExecutionResult.success(ProductView.from(product)));
                 });
+        ensureReadSuccess(result);
         observabilityService.recordProductRead(String.valueOf(result.getMeta().get(ProductReadMeta.SOURCE)));
         return result.getData();
     }
@@ -234,8 +248,13 @@ public class ProductServiceImpl implements ProductService {
                 operation,
                 List.of(
                         new MetricsTraceInterceptor<>(),
-                        new ProductListCacheInterceptor(cacheService),
-                        new ProductListStampedeInterceptor(cacheService)),
+                        new ReadThroughCacheInterceptor<>(new ProductListReadCache(cacheService), listNullHitHandler()),
+                        new CacheStampedeGuardInterceptor<>(
+                                new ProductReadLockManager(cacheService),
+                                new ProductListReadCache(cacheService),
+                                listNullHitHandler(),
+                                CACHE_LOCK_MAX_WAIT_ATTEMPTS,
+                                CACHE_LOCK_WAIT_MS)),
                 context -> {
                     log.info("product list cache miss, querying db with pipeline: hash={}", queryHash);
                     int offset = (normalizedPageNo - 1) * normalizedPageSize;
@@ -248,8 +267,32 @@ public class ProductServiceImpl implements ProductService {
                     context.setResult(ExecutionResult.success(
                             PageResponse.of(views, total, normalizedPageNo, normalizedPageSize)));
                 });
+        ensureReadSuccess(result);
         observabilityService.recordProductRead(String.valueOf(result.getMeta().get(ProductReadMeta.SOURCE)));
         return result.getData();
+    }
+
+    private CacheNullHitHandler<ProductView> detailNullHitHandler() {
+        return context -> {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        };
+    }
+
+    private CacheNullHitHandler<PageResponse<ProductView>> listNullHitHandler() {
+        return context -> context.setResult(ExecutionResult.success(emptyPage(context.getOperation())));
+    }
+
+    private PageResponse<ProductView> emptyPage(Operation operation) {
+        int pageNo = (Integer) operation.getMetadata().get(ProductReadOperations.META_PAGE_NO);
+        int pageSize = (Integer) operation.getMetadata().get(ProductReadOperations.META_PAGE_SIZE);
+        return PageResponse.of(List.of(), 0, pageNo, pageSize);
+    }
+
+    private void ensureReadSuccess(ExecutionResult<?> result) {
+        if (result == null || result.isSuccess()) {
+            return;
+        }
+        throw new BusinessException(ErrorCode.INTERNAL_ERROR, result.getMessage());
     }
 
     private StockView fetchStockView(String productId) {
