@@ -5,6 +5,7 @@ import com.lubover.singularity.product.cache.ProductCacheService.DetailCacheResu
 import com.lubover.singularity.product.cache.ProductCacheService.ListCacheResult;
 import com.lubover.singularity.product.dto.PageResponse;
 import com.lubover.singularity.product.dto.ProductView;
+import com.lubover.singularity.product.dto.UpdateProductRequest;
 import com.lubover.singularity.product.entity.Product;
 import com.lubover.singularity.product.event.ProductEventPublisher;
 import com.lubover.singularity.product.mapper.ProductMapper;
@@ -122,6 +123,31 @@ class ProductServiceImplTest {
         verify(cacheService).unlockList(anyString(), anyString());
     }
 
+    @Test
+    void update_shouldEvictDetailAndListCaches() {
+        ProductMapper productMapper = mock(ProductMapper.class);
+        ProductCacheService cacheService = mock(ProductCacheService.class);
+        ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
+
+        Product existing = buildProduct("p-4");
+        Product updated = buildProduct("p-4");
+        updated.setName("updated");
+        when(productMapper.selectByProductId("p-4"))
+                .thenReturn(existing)
+                .thenReturn(updated);
+        when(productMapper.updateByProductId(any(Product.class))).thenReturn(1);
+
+        UpdateProductRequest request = new UpdateProductRequest();
+        request.setName("updated");
+
+        ProductView result = service.update("p-4", request);
+
+        assertEquals("updated", result.getName());
+        verify(cacheService).evictDetail("p-4");
+        verify(cacheService).evictAllLists();
+    }
+
     private ProductView buildView(String productId) {
         ProductView view = new ProductView();
         view.setProductId(productId);
@@ -129,5 +155,14 @@ class ProductServiceImplTest {
         view.setCategory("cat");
         view.setPrice(BigDecimal.TEN);
         return view;
+    }
+
+    private Product buildProduct(String productId) {
+        Product product = new Product();
+        product.setProductId(productId);
+        product.setName("name");
+        product.setCategory("cat");
+        product.setPrice(BigDecimal.TEN);
+        return product;
     }
 }

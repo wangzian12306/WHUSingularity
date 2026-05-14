@@ -23,5 +23,7 @@ public interface ProductMapper {
 
     int updateByProductId(Product product);
 
+    int updateStatusByProductId(@Param("productId") String productId, @Param("status") Integer status);
+
     int markDeleted(@Param("productId") String productId);
 }

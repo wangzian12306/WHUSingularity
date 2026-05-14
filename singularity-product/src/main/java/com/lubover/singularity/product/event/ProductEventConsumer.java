@@ -1,11 +1,13 @@
 package com.lubover.singularity.product.event;
 
 import com.lubover.singularity.product.cache.ProductCacheService;
+import com.lubover.singularity.product.observability.ProductObservabilityService;
 import org.apache.rocketmq.spring.annotation.MessageModel;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -24,10 +26,20 @@ public class ProductEventConsumer implements RocketMQListener<ProductUpdatedEven
 
     private final ProductCacheService cacheService;
     private final StringRedisTemplate redisTemplate;
+    private final ProductObservabilityService observabilityService;
 
     public ProductEventConsumer(ProductCacheService cacheService, StringRedisTemplate redisTemplate) {
+        this(cacheService, redisTemplate, new ProductObservabilityService());
+    }
+
+    @Autowired
+    public ProductEventConsumer(
+            ProductCacheService cacheService,
+            StringRedisTemplate redisTemplate,
+            ProductObservabilityService observabilityService) {
         this.cacheService = cacheService;
         this.redisTemplate = redisTemplate;
+        this.observabilityService = observabilityService;
     }
 
     @Override
@@ -47,9 +59,11 @@ public class ProductEventConsumer implements RocketMQListener<ProductUpdatedEven
         try {
             cacheService.evictLocalDetail(event.getProductId());
             cacheService.evictLocalLists();
+            observabilityService.recordEventConsume(true);
             log.info("product event consumed: eventId={} action={} productId={}",
                     event.getEventId(), event.getAction(), event.getProductId());
         } catch (Exception e) {
+            observabilityService.recordEventConsume(false);
             log.error("product event consume failed: eventId={} action={} productId={} err={}",
                     event.getEventId(), event.getAction(), event.getProductId(), e.getMessage());
             throw e;
