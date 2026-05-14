@@ -1,6 +1,8 @@
 server:
   port: 8081
   tomcat:
+    keep-alive-timeout: 60s
+    max-keep-alive-requests: 5000
     accesslog:
       enabled: true
       pattern: '%h %l %u %t "%r" %s %b port=%p time=%D'

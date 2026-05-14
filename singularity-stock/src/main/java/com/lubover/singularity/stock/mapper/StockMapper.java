@@ -23,12 +23,13 @@ public interface StockMapper {
     int insert(Stock stock);
 
     /**
-     * 更新库存（扣库存-乐观锁）
-     * 只更新当版本号匹配时的记录
+     * 单条 SQL 条件扣减：仅当 {@code available_quantity >= quantity} 时，
+     * 原子扣减可用、增加预占并递增 version（避免读 version 再写的乐观锁冲突）。
+     *
+     * @return 影响行数：1 表示成功；0 表示无此行或可用不足
      */
-    int updateAvailableQuantity(@Param("productId") String productId,
-                                @Param("changeQuantity") Long changeQuantity,
-                                @Param("version") Long version);
+    int deductAvailableAndReserve(@Param("productId") String productId,
+                                  @Param("quantity") Long quantity);
 
     /**
      * 增加已占用库存

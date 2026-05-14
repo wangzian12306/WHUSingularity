@@ -28,6 +28,7 @@
         <module>singularity-merchant</module>
         <module>singularity-product</module>
         <module>singularity-scaler</module>
+        <module>singularity-order-baseline</module>
     </modules>
 
     <dependencyManagement>
