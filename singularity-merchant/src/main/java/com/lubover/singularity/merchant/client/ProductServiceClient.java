@@ -4,7 +4,7 @@ import com.lubover.singularity.merchant.dto.*;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
-@FeignClient(name = "singularity-product", url = "${product.service.url:http://localhost:8081}")
+@FeignClient(name = "singularity-product")
 public interface ProductServiceClient {
 
     @PostMapping("/api/product")

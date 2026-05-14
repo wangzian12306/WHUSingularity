@@ -12,6 +12,7 @@ public class CreateProductRequest {
     private String tags;
     private Integer status;
     private BigDecimal price;
+    private Long totalQuantity;
 
     public String getProductId() {
         return productId;
@@ -75,5 +76,13 @@ public class CreateProductRequest {
 
     public void setPrice(BigDecimal price) {
         this.price = price;
+    }
+
+    public Long getTotalQuantity() {
+        return totalQuantity;
+    }
+
+    public void setTotalQuantity(Long totalQuantity) {
+        this.totalQuantity = totalQuantity;
     }
 }

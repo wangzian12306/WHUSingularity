@@ -10,47 +10,31 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-/**
- * 基于 Redis + Caffeine 的 Slot 注册表
- *
- * <p>
- * 初始化时，从 Nacos 配置中心下发的配置中读取所有 slot（即 Redis 库存桶）的 key 列表，
- * 之后不再重新拉取。
- *
- * <p>
- * 当某个 slot 的库存首次被扣减至 0 时，由 {@link #markEmpty(String)} 将其写入
- * 本地 Caffeine 缓存，后续 {@link #getSlotList()} 将不再返回该 slot，
- * 避免无效的抢占请求继续击穿该桶。
- */
 @Component
 public class SlotRegistry implements Registry {
 
     private static final Logger log = LoggerFactory.getLogger(SlotRegistry.class);
 
-    private final List<StockSlot> slotList;
+    private final CopyOnWriteArrayList<StockSlot> slotList;
 
-    /**
-     * 本地 empty 标记缓存：key = slotId，value = true 表示已售罄
-     * 不设置过期，售罄后无需自动恢复（由运营手动补库存并重启服务）
-     */
     private final Cache<String, Boolean> emptyCache = Caffeine.newBuilder().build();
 
     public SlotRegistry(SlotProperties props) {
-        this.slotList = props.getSlots().stream()
+        List<StockSlot> initial = props.getSlots().stream()
                 .map(c -> new StockSlot(c.getId(), c.getRedisKey(), c.getProductId()))
                 .collect(Collectors.toList());
+        this.slotList = new CopyOnWriteArrayList<>(initial);
 
         log.info("SlotRegistry initialized with {} slots: {}",
                 slotList.size(),
                 slotList.stream().map(StockSlot::getId).collect(Collectors.joining(", ")));
     }
 
-    /**
-     * 返回当前未售罄的 slot 列表
-     */
     @Override
     public List<Slot> getSlotList() {
         return slotList.stream()
@@ -58,18 +42,16 @@ public class SlotRegistry implements Registry {
                 .collect(Collectors.toUnmodifiableList());
     }
 
-    /**
-     * 将指定 slot 标记为已售罄，后续不再出现在 slot 列表中
-     */
     public void markEmpty(String slotId) {
         emptyCache.put(slotId, Boolean.TRUE);
-
         log.info("slot [{}] marked as empty, excluded from future allocations", slotId);
     }
 
-    /**
-     * 通过 slotId 查找对应的 Redis 库存 key
-     */
+    public void clearEmpty(String slotId) {
+        emptyCache.invalidate(slotId);
+        log.info("slot [{}] cleared empty mark", slotId);
+    }
+
     public String getRedisStockKey(String slotId) {
         return slotList.stream()
                 .filter(s -> s.getId().equals(slotId))
@@ -84,5 +66,25 @@ public class SlotRegistry implements Registry {
                 .map(StockSlot::getProductId)
                 .findFirst()
                 .orElse(null);
+    }
+
+    public synchronized void addSlot(String slotId, String redisKey, String productId) {
+        boolean exists = slotList.stream().anyMatch(s -> s.getId().equals(slotId));
+        if (!exists) {
+            slotList.add(new StockSlot(slotId, redisKey, productId));
+            emptyCache.invalidate(slotId);
+            log.info("slot [{}] added dynamically: redisKey={}, productId={}", slotId, redisKey, productId);
+        } else {
+            emptyCache.invalidate(slotId);
+            log.info("slot [{}] already exists, cleared empty mark", slotId);
+        }
+    }
+
+    public List<StockSlot> getAllSlots() {
+        return new ArrayList<>(slotList);
+    }
+
+    public Boolean getEmptyStatus(String slotId) {
+        return emptyCache.getIfPresent(slotId);
     }
 }

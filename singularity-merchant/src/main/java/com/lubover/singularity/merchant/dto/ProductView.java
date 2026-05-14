@@ -18,6 +18,8 @@ public class ProductView {
     private LocalDateTime updateTime;
     private Integer merchantStatus;
     private Integer sortOrder;
+    private Long totalQuantity;
+    private Long availableQuantity;
 
     public String getProductId() {
         return productId;
@@ -121,5 +123,21 @@ public class ProductView {
 
     public void setSortOrder(Integer sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public Long getTotalQuantity() {
+        return totalQuantity;
+    }
+
+    public void setTotalQuantity(Long totalQuantity) {
+        this.totalQuantity = totalQuantity;
+    }
+
+    public Long getAvailableQuantity() {
+        return availableQuantity;
+    }
+
+    public void setAvailableQuantity(Long availableQuantity) {
+        this.availableQuantity = availableQuantity;
     }
 }

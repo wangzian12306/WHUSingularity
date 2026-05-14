@@ -80,6 +80,8 @@ services:
       SPRING_DATA_REDIS_PORT: "6379"
       JWT_SECRET: dev-secret-key
       SERVER_PORT: "8090"
+    ports:
+      - "8090:8090"
     volumes:
       - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
@@ -103,6 +105,8 @@ services:
       ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
       ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
       SERVER_PORT: "8082"
+    ports:
+      - "8082:8082"
     volumes:
       - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
@@ -208,6 +212,8 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: "6379"
       SERVER_PORT: "8087"
+    ports:
+      - "8087:8087"
     volumes:
       - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
@@ -231,6 +237,8 @@ services:
       SPRING_DATA_REDIS_PORT: "6379"
       JWT_SECRET: dev-secret-key-at-least-32-characters-long
       SERVER_PORT: "8091"
+    ports:
+      - "8091:8091"
     volumes:
       - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2

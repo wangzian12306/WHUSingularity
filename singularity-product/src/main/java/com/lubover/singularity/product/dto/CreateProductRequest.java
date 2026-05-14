@@ -1,7 +1,10 @@
 package com.lubover.singularity.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.math.BigDecimal;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CreateProductRequest {
 
     private String productId;

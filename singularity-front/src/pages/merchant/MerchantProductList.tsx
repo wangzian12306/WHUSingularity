@@ -18,7 +18,6 @@ import { productApi } from '../../api/merchant-product'
 import type { ProductView, CreateProductRequest, UpdateProductRequest } from '../../api/types'
 
 const { Option } = Select
-const { TextArea } = Input
 
 export default function MerchantProductList() {
   const [products, setProducts] = useState<ProductView[]>([])
@@ -55,10 +54,12 @@ export default function MerchantProductList() {
     setEditingProduct(product)
     form.setFieldsValue({
       name: product.name,
-      description: product.description,
+      subtitle: product.subtitle,
+      mainImage: product.mainImage,
       price: product.price,
-      image: product.image,
       category: product.category,
+      tags: product.tags,
+      totalQuantity: product.totalQuantity,
     })
     setModalVisible(true)
   }
@@ -118,12 +119,24 @@ export default function MerchantProductList() {
   }
 
   const columns = [
-    { title: '商品ID', dataIndex: 'productId', key: 'productId', width: 200 },
     { title: '商品名称', dataIndex: 'name', key: 'name' },
     { title: '价格', dataIndex: 'price', key: 'price', render: (price: number) => `¥${price.toFixed(2)}` },
     { title: '分类', dataIndex: 'category', key: 'category' },
+    { 
+      title: '总库存', 
+      key: 'totalQuantity', 
+      render: (_: unknown, record: ProductView) => record.totalQuantity ?? '-',
+    },
+    { 
+      title: '可用库存', 
+      key: 'availableQuantity', 
+      render: (_: unknown, record: ProductView) => {
+        const qty = record.availableQuantity
+        if (qty == null) return '-'
+        return qty > 0 ? <Tag color="green">{qty}</Tag> : <Tag color="red">0</Tag>
+      },
+    },
     { title: '状态', dataIndex: 'merchantStatus', key: 'merchantStatus', render: getStatusTag },
-    { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
     {
       title: '操作',
       key: 'action',
@@ -187,8 +200,8 @@ export default function MerchantProductList() {
           >
             <Input placeholder="商品名称" />
           </Form.Item>
-          <Form.Item name="description" label="商品描述">
-            <TextArea rows={4} placeholder="商品描述" />
+          <Form.Item name="subtitle" label="副标题">
+            <Input placeholder="副标题" />
           </Form.Item>
           <Form.Item
             name="price"
@@ -205,8 +218,17 @@ export default function MerchantProductList() {
               <Option value="other">其他</Option>
             </Select>
           </Form.Item>
-          <Form.Item name="image" label="图片URL">
+          <Form.Item name="mainImage" label="图片URL">
             <Input placeholder="图片URL" />
+          </Form.Item>
+          <Form.Item name="tags" label="标签">
+            <Input placeholder="标签，逗号分隔" />
+          </Form.Item>
+          <Form.Item 
+            name="totalQuantity" 
+            label={editingProduct ? '库存数量（修改将覆盖原有库存）' : '库存数量'}
+          >
+            <InputNumber min={0} style={{ width: '100%' }} placeholder="库存数量" />
           </Form.Item>
           <Form.Item>
             <Space>
