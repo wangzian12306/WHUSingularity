@@ -64,7 +64,7 @@ public class MerchantController {
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<MerchantView> getMerchant(@PathVariable Long id) {
+    public ApiResponse<MerchantView> getMerchant(@PathVariable("id") Long id) {
         MerchantView view = merchantService.getMerchantViewById(id);
         return ApiResponse.success(view);
     }

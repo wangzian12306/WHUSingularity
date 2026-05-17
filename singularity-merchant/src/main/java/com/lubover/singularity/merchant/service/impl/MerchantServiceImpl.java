@@ -125,10 +125,8 @@ public class MerchantServiceImpl implements MerchantService {
     @CachePut(value = "merchant", key = "#a0.id")
     public Merchant updateMerchant(Merchant merchant) {
         Merchant existing = getCurrentMerchant();
-        
-        if (!existing.getId().equals(merchant.getId())) {
-            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
-        }
+
+        merchant.setId(existing.getId());
 
         merchantMapper.update(merchant);
         return getMerchantById(merchant.getId());

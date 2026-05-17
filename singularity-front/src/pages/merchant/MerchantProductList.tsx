@@ -1,35 +1,30 @@
 import { useState, useEffect } from 'react'
-import { 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  InputNumber, 
-  Select, 
-  Space, 
-  message, 
-  Popconfirm, 
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  message,
+  Popconfirm,
   Tag,
   Card
 } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
-import { productApi, inventoryApi } from '../../api/merchant-product'
-import type { ProductView, ProductInventory, CreateProductRequest, UpdateProductRequest } from '../../api/types'
+import { productApi } from '../../api/merchant-product'
+import type { ProductView, CreateProductRequest, UpdateProductRequest } from '../../api/types'
 
 const { Option } = Select
-const { TextArea } = Input
 
 export default function MerchantProductList() {
   const [products, setProducts] = useState<ProductView[]>([])
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ProductView | null>(null)
-  const [inventoryModalVisible, setInventoryModalVisible] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<ProductView | null>(null)
-  const [inventory, setInventory] = useState<ProductInventory | null>(null)
   const [form] = Form.useForm()
-  const [inventoryForm] = Form.useForm()
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -59,17 +54,19 @@ export default function MerchantProductList() {
     setEditingProduct(product)
     form.setFieldsValue({
       name: product.name,
-      description: product.description,
+      subtitle: product.subtitle,
+      mainImage: product.mainImage,
       price: product.price,
-      image: product.image,
       category: product.category,
+      tags: product.tags,
+      totalQuantity: product.totalQuantity,
     })
     setModalVisible(true)
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (productId: string) => {
     try {
-      const res = await productApi.delete(id)
+      const res = await productApi.delete(productId)
       if (res.success) {
         message.success('删除成功')
         fetchProducts()
@@ -85,7 +82,7 @@ export default function MerchantProductList() {
     try {
       let res
       if (editingProduct) {
-        res = await productApi.update(editingProduct.id, values as UpdateProductRequest)
+        res = await productApi.update(editingProduct.productId, values as UpdateProductRequest)
       } else {
         res = await productApi.create(values)
       }
@@ -101,11 +98,11 @@ export default function MerchantProductList() {
     }
   }
 
-  const handleStatus = async (id: number, status: number) => {
+  const handleStatus = async (productId: string, status: number) => {
     try {
-      const res = await productApi.updateStatus(id, status)
+      const res = await productApi.updateStatus(productId, status)
       if (res.success) {
-        message.success('状态更新成功')
+        message.success('状态更新成�?)
         fetchProducts()
       } else {
         message.error(res.error?.message ?? '更新失败')
@@ -115,47 +112,31 @@ export default function MerchantProductList() {
     }
   }
 
-  const handleInventory = async (product: ProductView) => {
-    setSelectedProduct(product)
-    setInventoryModalVisible(true)
-    try {
-      const res = await inventoryApi.getByProduct(product.id)
-      if (res.success) {
-        setInventory(res.data ?? null)
-      }
-    } catch {
-      message.error('获取库存失败')
-    }
-  }
-
-  const handleInventorySubmit = async (values: { quantity: number; remark?: string }) => {
-    if (!selectedProduct) return
-    try {
-      const res = await inventoryApi.add(selectedProduct.id, values)
-      if (res.success) {
-        message.success('库存调整成功')
-        setInventoryModalVisible(false)
-      } else {
-        message.error(res.error?.message ?? '调整失败')
-      }
-    } catch {
-      message.error('调整失败')
-    }
-  }
-
   const getStatusTag = (status: number) => {
-    if (status === 1) return <Tag color="green">上架中</Tag>
+    if (status === 1) return <Tag color="green">上架�?/Tag>
     if (status === 0) return <Tag color="default">下架</Tag>
     return <Tag color="red">禁用</Tag>
   }
 
   const columns = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
     { title: '商品名称', dataIndex: 'name', key: 'name' },
     { title: '价格', dataIndex: 'price', key: 'price', render: (price: number) => `¥${price.toFixed(2)}` },
     { title: '分类', dataIndex: 'category', key: 'category' },
-    { title: '状态', dataIndex: 'status', key: 'status', render: getStatusTag },
-    { title: '创建时间', dataIndex: 'createTime', key: 'createTime' },
+    {
+      title: '总库�?,
+      key: 'totalQuantity',
+      render: (_: unknown, record: ProductView) => record.totalQuantity ?? '-',
+    },
+    {
+      title: '可用库存',
+      key: 'availableQuantity',
+      render: (_: unknown, record: ProductView) => {
+        const qty = record.availableQuantity
+        if (qty == null) return '-'
+        return qty > 0 ? <Tag color="green">{qty}</Tag> : <Tag color="red">0</Tag>
+      },
+    },
+    { title: '状�?, dataIndex: 'merchantStatus', key: 'merchantStatus', render: getStatusTag },
     {
       title: '操作',
       key: 'action',
@@ -164,21 +145,18 @@ export default function MerchantProductList() {
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             编辑
           </Button>
-          <Button type="link" size="small" onClick={() => handleInventory(record)}>
-            库存
-          </Button>
-          {record.status === 1 ? (
-            <Button type="link" size="small" onClick={() => handleStatus(record.id, 0)}>
+          {record.merchantStatus === 1 ? (
+            <Button type="link" size="small" onClick={() => handleStatus(record.productId, 0)}>
               下架
             </Button>
           ) : (
-            <Button type="link" size="small" onClick={() => handleStatus(record.id, 1)}>
+            <Button type="link" size="small" onClick={() => handleStatus(record.productId, 1)}>
               上架
             </Button>
           )}
           <Popconfirm
-            title="确定要删除这个商品吗？"
-            onConfirm={() => handleDelete(record.id)}
+            title="确定要删除这个商品吗�?
+            onConfirm={() => handleDelete(record.productId)}
             okText="确定"
             cancelText="取消"
           >
@@ -202,7 +180,7 @@ export default function MerchantProductList() {
         <Table
           columns={columns}
           dataSource={products}
-          rowKey="id"
+          rowKey="productId"
           loading={loading}
         />
       </Card>
@@ -218,17 +196,17 @@ export default function MerchantProductList() {
           <Form.Item
             name="name"
             label="商品名称"
-            rules={[{ required: true, message: '请输入商品名称' }]}
+            rules={[{ required: true, message: '请输入商品名�? }]}
           >
             <Input placeholder="商品名称" />
           </Form.Item>
-          <Form.Item name="description" label="商品描述">
-            <TextArea rows={4} placeholder="商品描述" />
+          <Form.Item name="subtitle" label="副标�?>
+            <Input placeholder="副标�? />
           </Form.Item>
           <Form.Item
             name="price"
             label="价格"
-            rules={[{ required: true, message: '请输入价格' }]}
+            rules={[{ required: true, message: '请输入价�? }]}
           >
             <InputNumber min={0} style={{ width: '100%' }} placeholder="价格" />
           </Form.Item>
@@ -240,8 +218,17 @@ export default function MerchantProductList() {
               <Option value="other">其他</Option>
             </Select>
           </Form.Item>
-          <Form.Item name="image" label="图片URL">
+          <Form.Item name="mainImage" label="图片URL">
             <Input placeholder="图片URL" />
+          </Form.Item>
+          <Form.Item name="tags" label="标签">
+            <Input placeholder="标签，逗号分隔" />
+          </Form.Item>
+          <Form.Item
+            name="totalQuantity"
+            label={editingProduct ? '库存数量（修改将覆盖原有库存�? : '库存数量'}
+          >
+            <InputNumber min={0} style={{ width: '100%' }} placeholder="库存数量" />
           </Form.Item>
           <Form.Item>
             <Space>
@@ -249,41 +236,6 @@ export default function MerchantProductList() {
                 {editingProduct ? '更新' : '创建'}
               </Button>
               <Button onClick={() => setModalVisible(false)}>取消</Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        title="库存管理"
-        open={inventoryModalVisible}
-        onCancel={() => setInventoryModalVisible(false)}
-        footer={null}
-      >
-        {inventory && (
-          <div style={{ marginBottom: 16 }}>
-            <p>当前可用库存: {inventory.availableQuantity}</p>
-            <p>锁定库存: {inventory.lockedQuantity}</p>
-            <p>总库存: {inventory.totalQuantity}</p>
-          </div>
-        )}
-        <Form form={inventoryForm} layout="vertical" onFinish={handleInventorySubmit}>
-          <Form.Item
-            name="quantity"
-            label="调整数量"
-            rules={[{ required: true, message: '请输入调整数量' }]}
-          >
-            <InputNumber min={1} style={{ width: '100%' }} placeholder="正数为增加，负数为减少" />
-          </Form.Item>
-          <Form.Item name="remark" label="备注">
-            <Input placeholder="备注" />
-          </Form.Item>
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit">
-                确认
-              </Button>
-              <Button onClick={() => setInventoryModalVisible(false)}>取消</Button>
             </Space>
           </Form.Item>
         </Form>

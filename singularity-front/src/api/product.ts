@@ -1,21 +1,21 @@
 import { request } from './client'
 import type {
-  ProductCatalogView,
+  PageResponse,
   ProductDetailResponse,
   ProductListParams,
-  ProductPageResponse,
+  ProductView,
 } from './types'
 
 export const productCatalogApi = {
   list: (params?: ProductListParams) =>
-    request<ProductPageResponse>({ method: 'GET', url: '/api/product/list', params }),
+    request<PageResponse<ProductView>>({ method: 'GET', url: '/api/product/public/list', params }),
 
   get: (productId: string) =>
-    request<ProductCatalogView>({ method: 'GET', url: `/api/product/${productId}` }),
+    request<ProductView>({ method: 'GET', url: `/api/product/public/${productId}` }),
 
   getWithStock: (productId: string) =>
-    request<ProductDetailResponse>({ method: 'GET', url: `/api/product/${productId}/with-stock` }),
+    request<ProductDetailResponse>({ method: 'GET', url: `/api/product/public/${productId}/with-stock` }),
 
   metrics: () =>
-    request<Record<string, unknown>>({ method: 'GET', url: '/api/product/metrics' }),
+    request<Record<string, unknown>>({ method: 'GET', url: '/api/product/public/metrics' }),
 }

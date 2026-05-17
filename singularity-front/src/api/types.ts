@@ -83,6 +83,7 @@ export interface InitStockRequest {
 
 export interface SnagOrderRequest {
   userId: string
+  productId?: string
 }
 
 export interface SnagOrderResponse {
@@ -174,26 +175,22 @@ export interface UpdateMerchantRequest {
 }
 
 // Product
-export interface ProductCatalogView {
+export interface ProductView {
   productId: string
   name: string
   subtitle: string | null
   mainImage: string | null
-  category: string
+  category: string | null
   tags: string | null
   status: number
   price: number
   version: number
   createTime: string
   updateTime: string
-}
-
-export interface ProductPageResponse {
-  records: ProductCatalogView[]
-  total: number
-  pageNo: number
-  pageSize: number
-  totalPages: number
+  merchantStatus: number
+  sortOrder: number
+  totalQuantity: number | null
+  availableQuantity: number | null
 }
 
 export interface ProductStockView {
@@ -206,59 +203,50 @@ export interface ProductStockView {
 }
 
 export interface ProductDetailResponse {
-  product: ProductCatalogView
+  product: ProductView
   stock: ProductStockView | null
 }
 
 export interface ProductListParams {
-  status?: number
   category?: string
   keyword?: string
   pageNo?: number
   pageSize?: number
 }
 
-export interface Product {
-  id: number
-  merchantId: number
-  name: string
-  description: string | null
-  price: number
-  image: string | null
-  category: string | null
-  status: number
-  createTime: string
-  updateTime: string
-}
-
-export interface ProductView {
-  id: number
-  merchantId: number
-  name: string
-  description: string | null
-  price: number
-  image: string | null
-  category: string | null
-  status: number
-  createTime: string
-  updateTime: string
-}
-
 export interface CreateProductRequest {
+  productId?: string
   name: string
-  description?: string
-  price: number
-  image?: string
+  subtitle?: string
+  mainImage?: string
   category?: string
+  tags?: string
+  status?: number
+  price: number
+  totalQuantity?: number
 }
 
 export interface UpdateProductRequest {
   name?: string
-  description?: string
-  price?: number
-  image?: string
+  subtitle?: string
+  mainImage?: string
   category?: string
+  tags?: string
   status?: number
+  price?: number
+  totalQuantity?: number
+}
+
+export interface PageResponse<T> {
+  records?: T[]
+  content?: T[]
+  totalElements?: number
+  totalPages?: number
+  total?: number
+  page?: number
+  pageNo?: number
+  size?: number
+  pageSize?: number
 }
 
 // Product Inventory

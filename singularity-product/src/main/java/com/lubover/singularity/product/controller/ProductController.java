@@ -83,4 +83,28 @@ public class ProductController {
     public ApiResponse<Map<String, Object>> metrics() {
         return ApiResponse.success(observabilityService.snapshot());
     }
+
+    @GetMapping("/public/list")
+    public ApiResponse<PageResponse<ProductView>> publicList(
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "100") int pageSize) {
+        return ApiResponse.success(productService.list(1, category, keyword, pageNo, pageSize));
+    }
+
+    @GetMapping("/public/{productId}")
+    public ApiResponse<ProductView> publicDetail(@PathVariable("productId") String productId) {
+        return ApiResponse.success(productService.getByProductId(productId));
+    }
+
+    @GetMapping("/public/{productId}/with-stock")
+    public ApiResponse<ProductDetailView> publicDetailWithStock(@PathVariable("productId") String productId) {
+        return ApiResponse.success(productService.getDetailWithStock(productId));
+    }
+
+    @GetMapping("/public/metrics")
+    public ApiResponse<Map<String, Object>> publicMetrics() {
+        return ApiResponse.success(observabilityService.snapshot());
+    }
 }

@@ -5,7 +5,7 @@ import { SearchOutlined, ShoppingOutlined } from '@ant-design/icons'
 import { useMerchantAuth } from '../contexts/MerchantAuthContext'
 import { productCatalogApi } from '../api/product'
 import { registerHomeTools, unregisterHomeTools } from '../webmcp/tools'
-import type { ProductCatalogView } from '../api/types'
+import type { ProductView } from '../api/types'
 
 const { Title, Text, Paragraph } = Typography
 
@@ -18,7 +18,7 @@ const imageFallback =
 export default function Home() {
   const { merchant } = useMerchantAuth()
   const navigate = useNavigate()
-  const [products, setProducts] = useState<ProductCatalogView[]>([])
+  const [products, setProducts] = useState<ProductView[]>([])
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -26,13 +26,12 @@ export default function Home() {
     setLoading(true)
     try {
       const res = await productCatalogApi.list({
-        status: 1,
         keyword: nextKeyword || undefined,
         pageNo: 1,
         pageSize: 24,
       })
       if (res.success && res.data) {
-        setProducts(res.data.records)
+        setProducts(res.data.records ?? res.data.content ?? [])
       }
     } finally {
       setLoading(false)
@@ -113,7 +112,7 @@ export default function Home() {
               >
                 <Space direction="vertical" size={8} style={{ width: '100%' }}>
                   <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <Tag color="blue">{product.category}</Tag>
+                    <Tag color="blue">{product.category ?? '未分类'}</Tag>
                     <Badge status={product.status === 1 ? 'success' : 'default'} text={product.status === 1 ? '上架' : '下架'} />
                   </Space>
                   <Title level={5} style={{ margin: 0 }}>{product.name}</Title>

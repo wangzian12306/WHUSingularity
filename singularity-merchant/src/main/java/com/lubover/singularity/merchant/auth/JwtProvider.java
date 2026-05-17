@@ -1,9 +1,9 @@
 package com.lubover.singularity.merchant.auth;
 
+import com.lubover.singularity.merchant.config.JwtProperties;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.*;
 import com.nimbusds.jwt.*;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -24,8 +24,8 @@ public class JwtProvider {
     private final JWSSigner signer;
     private final JWSVerifier verifier;
 
-    public JwtProvider(@Value("${jwt.secret:your-super-secret-key-at-least-32-chars}") String secret) throws JOSEException {
-        byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+    public JwtProvider(JwtProperties jwtProperties) throws JOSEException {
+        byte[] secretBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
         this.secretKey = new SecretKeySpec(secretBytes, "HS256");
         this.signer = new MACSigner(this.secretKey);
         this.verifier = new MACVerifier(this.secretKey);

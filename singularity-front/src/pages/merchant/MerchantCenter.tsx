@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Button, Table, Modal, Form, Input, Row, Col, Tag, Space, Typography, message } from 'antd'
-import type { ColumnsType } from 'antd/es/table'
+import { Card, Button, Modal, Form, Input, Row, Col, Tag, Space, Typography, message } from 'antd'
 import { useMerchantAuth } from '../../contexts/MerchantAuthContext'
 import { merchantApi } from '../../api/merchant'
-import { inventoryApi } from '../../api/merchant-product'
-import type { MerchantView, InventoryChangeLog, UpdateMerchantRequest } from '../../api/types'
+import { productApi } from '../../api/merchant-product'
+import type { MerchantView, UpdateMerchantRequest, ProductView } from '../../api/types'
 
 const { Title, Text } = Typography
 
@@ -15,8 +14,8 @@ export default function MerchantCenter() {
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [editForm] = Form.useForm()
 
-  const [logs, setLogs] = useState<InventoryChangeLog[]>([])
-  const [logsLoading, setLogsLoading] = useState(false)
+  const [productCount, setProductCount] = useState(0)
+  const [activeProductCount, setActiveProductCount] = useState(0)
 
   const fetchMerchantDetail = useCallback(async () => {
     if (!merchant) return
@@ -33,25 +32,23 @@ export default function MerchantCenter() {
     }
   }, [merchant])
 
-  const fetchInventoryLogs = useCallback(async () => {
+  const fetchProductStats = useCallback(async () => {
     if (!merchant) return
-    setLogsLoading(true)
     try {
-      const res = await inventoryApi.getMerchantLogs()
-      if (res.success) {
-        setLogs(res.data ?? [])
+      const res = await productApi.list()
+      if (res.success && res.data) {
+        setProductCount(res.data.length)
+        setActiveProductCount(res.data.filter((p: ProductView) => p.merchantStatus === 1).length)
       }
     } catch {
-      message.error('获取库存记录失败')
-    } finally {
-      setLogsLoading(false)
+      // product service may be unavailable
     }
   }, [merchant])
 
   useEffect(() => {
     fetchMerchantDetail()
-    fetchInventoryLogs()
-  }, [fetchMerchantDetail, fetchInventoryLogs])
+    fetchProductStats()
+  }, [fetchMerchantDetail, fetchProductStats])
 
   const handleEdit = () => {
     editForm.setFieldsValue({
@@ -78,25 +75,6 @@ export default function MerchantCenter() {
       message.error('更新失败')
     }
   }
-
-  const getChangeTypeText = (type: number) => {
-    if (type === 1) return <Tag color="green">增加</Tag>
-    if (type === 2) return <Tag color="orange">减少</Tag>
-    if (type === 3) return <Tag color="blue">锁定</Tag>
-    if (type === 4) return <Tag color="purple">解锁</Tag>
-    return <Tag>未知</Tag>
-  }
-
-  const logColumns: ColumnsType<InventoryChangeLog> = [
-    { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
-    { title: '商品ID', dataIndex: 'productId', key: 'productId' },
-    { title: '变更类型', dataIndex: 'changeType', key: 'changeType', render: getChangeTypeText },
-    { title: '变更数量', dataIndex: 'changeQuantity', key: 'changeQuantity' },
-    { title: '变更前', dataIndex: 'beforeQuantity', key: 'beforeQuantity' },
-    { title: '变更后', dataIndex: 'afterQuantity', key: 'afterQuantity' },
-    { title: '备注', dataIndex: 'remark', key: 'remark' },
-    { title: '时间', dataIndex: 'createTime', key: 'createTime' },
-  ]
 
   return (
     <div>
@@ -132,19 +110,13 @@ export default function MerchantCenter() {
           <Card title="统计信息">
             <Space direction="vertical" style={{ width: '100%' }}>
               <Text>注册时间: {merchantDetail?.createTime ?? '-'}</Text>
+              <Text>商品总数: {productCount}</Text>
+              <Text>上架商品: <Tag color="green">{activeProductCount}</Tag></Text>
+              <Text>下架商品: <Tag color="orange">{productCount - activeProductCount}</Tag></Text>
             </Space>
           </Card>
         </Col>
       </Row>
-
-      <Card title="库存变更记录" style={{ marginTop: 16 }}>
-        <Table
-          rowKey="id"
-          columns={logColumns}
-          dataSource={logs}
-          loading={logsLoading}
-        />
-      </Card>
 
       <Modal
         title="编辑商户信息"

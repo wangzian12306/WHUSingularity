@@ -39,24 +39,23 @@ export default function AppLayout() {
           Singularity
         </Text>
         <Space>
-          {user ? (
-            <>
-              <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{user?.nickname ?? user?.username}</Text>
-              <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/')}>
-                首页
+          <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{user?.nickname ?? user?.username}</Text>
+          <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/')}>
+            首页
+          </Button>
+          <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/user')}>
+            用户中心
+          </Button>
+          <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/webmcp-demo')}>
+            WebMCP
+          </Button>
+          {user?.role === 'admin' ? (
+            <Dropdown menu={{ items: adminItems }} placement="bottomRight">
+              <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                管理页 <DownOutlined />
               </Button>
-              <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/user')}>
-                用户中心
-              </Button>
-              {user?.role === 'admin' && (
-                <Dropdown menu={{ items: adminItems }} placement="bottomRight">
-                  <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                    管理页 <DownOutlined />
-                  </Button>
-                </Dropdown>
-              )}
-            </>
-          ) : (
+            </Dropdown>
+          ) : merchant ? (
             <>
               <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{merchant?.shopName ?? merchant?.username}</Text>
               <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/')}>
@@ -68,7 +67,7 @@ export default function AppLayout() {
                 </Button>
               </Dropdown>
             </>
-          )}
+          ) : null}
           <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={handleLogout}>
             退出
           </Button>

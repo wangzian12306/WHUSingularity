@@ -70,7 +70,10 @@ export default function ProductDetail() {
     if (!user || !detail) return
     setSnagging(true)
     try {
-      const res = await orderApi.snag({ userId: String(user.id) })
+      const res = await orderApi.snag({
+        userId: String(user.id),
+        productId: detail.product.productId,
+      })
       if (res.success && res.data) {
         message.success(`抢单成功，订单号：${res.data.orderId}`)
         navigate('/user')
@@ -97,7 +100,8 @@ export default function ProductDetail() {
   }
 
   const { product, stock } = detail
-  const available = stock?.availableQuantity ?? 0
+  const available = stock?.availableQuantity ?? product.availableQuantity ?? 0
+  const total = stock?.totalQuantity ?? product.totalQuantity ?? 0
   const tags = splitTags(product.tags)
 
   return (
@@ -125,7 +129,7 @@ export default function ProductDetail() {
                 <Tag color={product.status === 1 ? 'green' : 'default'}>
                   {product.status === 1 ? '上架中' : '已下架'}
                 </Tag>
-                <Tag color="blue">{product.category}</Tag>
+                <Tag color="blue">{product.category ?? '未分类'}</Tag>
                 {tags.map((tag) => (
                   <Tag key={tag}>{tag}</Tag>
                 ))}
@@ -149,7 +153,7 @@ export default function ProductDetail() {
                   <Statistic title="可用库存" value={available} />
                 </Col>
                 <Col xs={8}>
-                  <Statistic title="总库存" value={stock?.totalQuantity ?? 0} />
+                  <Statistic title="总库存" value={total} />
                 </Col>
                 <Col xs={8}>
                   <Statistic title="已预留" value={stock?.reservedQuantity ?? 0} />
