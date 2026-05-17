@@ -5,86 +5,52 @@ import java.time.LocalDateTime;
 
 public class ProductView {
 
-    private Long id;
-    private Long merchantId;
-    private String merchantName;
-    private String productName;
-    private String description;
-    private BigDecimal price;
-    private BigDecimal originalPrice;
-    private String imageUrl;
+    private String productId;
+    private String name;
+    private String subtitle;
+    private String mainImage;
     private String category;
+    private String tags;
     private Integer status;
-    private Integer sortOrder;
-    private Integer isHot;
-    private Integer isRecommend;
-    private Long salesCount;
-    private Long viewCount;
-    private Long availableQuantity;
+    private BigDecimal price;
+    private Long version;
     private LocalDateTime createTime;
+    private LocalDateTime updateTime;
+    private Integer merchantStatus;
+    private Integer sortOrder;
+    private Long totalQuantity;
+    private Long availableQuantity;
 
-    public Long getId() {
-        return id;
+    public String getProductId() {
+        return productId;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public void setProductId(String productId) {
+        this.productId = productId;
     }
 
-    public Long getMerchantId() {
-        return merchantId;
+    public String getName() {
+        return name;
     }
 
-    public void setMerchantId(Long merchantId) {
-        this.merchantId = merchantId;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public String getMerchantName() {
-        return merchantName;
+    public String getSubtitle() {
+        return subtitle;
     }
 
-    public void setMerchantName(String merchantName) {
-        this.merchantName = merchantName;
+    public void setSubtitle(String subtitle) {
+        this.subtitle = subtitle;
     }
 
-    public String getProductName() {
-        return productName;
+    public String getMainImage() {
+        return mainImage;
     }
 
-    public void setProductName(String productName) {
-        this.productName = productName;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(BigDecimal price) {
-        this.price = price;
-    }
-
-    public BigDecimal getOriginalPrice() {
-        return originalPrice;
-    }
-
-    public void setOriginalPrice(BigDecimal originalPrice) {
-        this.originalPrice = originalPrice;
-    }
-
-    public String getImageUrl() {
-        return imageUrl;
-    }
-
-    public void setImageUrl(String imageUrl) {
-        this.imageUrl = imageUrl;
+    public void setMainImage(String mainImage) {
+        this.mainImage = mainImage;
     }
 
     public String getCategory() {
@@ -95,12 +61,60 @@ public class ProductView {
         this.category = category;
     }
 
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
     public Integer getStatus() {
         return status;
     }
 
     public void setStatus(Integer status) {
         this.status = status;
+    }
+
+    public BigDecimal getPrice() {
+        return price;
+    }
+
+    public void setPrice(BigDecimal price) {
+        this.price = price;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
+    public LocalDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createTime = createTime;
+    }
+
+    public LocalDateTime getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(LocalDateTime updateTime) {
+        this.updateTime = updateTime;
+    }
+
+    public Integer getMerchantStatus() {
+        return merchantStatus;
+    }
+
+    public void setMerchantStatus(Integer merchantStatus) {
+        this.merchantStatus = merchantStatus;
     }
 
     public Integer getSortOrder() {
@@ -111,36 +125,12 @@ public class ProductView {
         this.sortOrder = sortOrder;
     }
 
-    public Integer getIsHot() {
-        return isHot;
+    public Long getTotalQuantity() {
+        return totalQuantity;
     }
 
-    public void setIsHot(Integer isHot) {
-        this.isHot = isHot;
-    }
-
-    public Integer getIsRecommend() {
-        return isRecommend;
-    }
-
-    public void setIsRecommend(Integer isRecommend) {
-        this.isRecommend = isRecommend;
-    }
-
-    public Long getSalesCount() {
-        return salesCount;
-    }
-
-    public void setSalesCount(Long salesCount) {
-        this.salesCount = salesCount;
-    }
-
-    public Long getViewCount() {
-        return viewCount;
-    }
-
-    public void setViewCount(Long viewCount) {
-        this.viewCount = viewCount;
+    public void setTotalQuantity(Long totalQuantity) {
+        this.totalQuantity = totalQuantity;
     }
 
     public Long getAvailableQuantity() {
@@ -149,13 +139,5 @@ public class ProductView {
 
     public void setAvailableQuantity(Long availableQuantity) {
         this.availableQuantity = availableQuantity;
-    }
-
-    public LocalDateTime getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(LocalDateTime createTime) {
-        this.createTime = createTime;
     }
 }

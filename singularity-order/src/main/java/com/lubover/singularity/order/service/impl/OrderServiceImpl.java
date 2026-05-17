@@ -8,6 +8,7 @@ import com.lubover.singularity.order.feign.UserClient;
 import com.lubover.singularity.order.mapper.OrderMapper;
 import com.lubover.singularity.order.registry.SlotRegistry;
 import com.lubover.singularity.order.service.OrderService;
+import com.lubover.singularity.order.slot.StockSlot;
 import com.lubover.singularity.order.tx.OrderLocalTransaction;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
@@ -34,6 +35,9 @@ public class OrderServiceImpl implements OrderService {
     private final Allocator allocator;
     private final OrderMapper orderMapper;
     private final UserClient userClient;
+    private final SlotRegistry slotRegistry;
+    private final RocketMQTemplate rocketMQTemplate;
+    private final StringRedisTemplate redisTemplate;
 
     @Autowired
     public OrderServiceImpl(
@@ -52,11 +56,58 @@ public class OrderServiceImpl implements OrderService {
                 handler(rocketMQTemplate, redisTemplate, slotRegistry));
         this.orderMapper = orderMapper;
         this.userClient = userClient;
+        this.slotRegistry = slotRegistry;
+        this.rocketMQTemplate = rocketMQTemplate;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
     public Result snagOrder(Actor actor) {
         return allocator.allocate(actor);
+    }
+
+    @Override
+    public Result snagOrderByProduct(Actor actor, String productId) {
+        StockSlot targetSlot = null;
+        for (StockSlot slot : slotRegistry.getAllSlots()) {
+            if (productId.equals(slot.getProductId())) {
+                if (!Boolean.TRUE.equals(slotRegistry.getEmptyStatus(slot.getId()))) {
+                    targetSlot = slot;
+                    break;
+                }
+            }
+        }
+        if (targetSlot == null) {
+            return new Result(false, "商品库存不足或不存在");
+        }
+
+        String orderId = UUID.randomUUID().toString();
+        String redisStockKey = targetSlot.getRedisStockKey();
+        LocalDateTime createTime = LocalDateTime.now();
+
+        OrderLocalTransaction localTx = new OrderLocalTransaction(
+                orderId, actor.getId(), targetSlot.getId(),
+                productId, redisStockKey, redisTemplate, slotRegistry, createTime);
+
+        OrderMessage orderMessage = new OrderMessage();
+        orderMessage.setOrderId(orderId);
+        orderMessage.setProductId(productId);
+        orderMessage.setUserId(actor.getId());
+        orderMessage.setSlotId(targetSlot.getId());
+        orderMessage.setCreateTime(createTime);
+
+        Message<OrderMessage> msg = MessageBuilder.withPayload(orderMessage)
+                .setHeader("orderId", orderId)
+                .build();
+
+        TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction(
+                "order-topic", msg, localTx);
+
+        if (sendResult.getLocalTransactionState() == LocalTransactionState.COMMIT_MESSAGE) {
+            return new Result(true, orderId);
+        } else {
+            return new Result(false, "库存不足，抢单失败");
+        }
     }
 
     @Override
@@ -108,9 +159,6 @@ public class OrderServiceImpl implements OrderService {
             }
             LocalDateTime createTime = LocalDateTime.now();
 
-            // Step 1: 构造本地事务对象（Redis 减库存 + 写 order），作为 arg 传入
-            // RocketMQ 在半消息确认后会回调 OrderTransactionListener.executeLocalTransaction，
-            // 后者直接委托给该对象执行，不再包含任何业务逻辑
             OrderLocalTransaction localTx = new OrderLocalTransaction(
                     orderId, actor.getId(), slot.getId(),
                     productId, redisStockKey, redisTemplate, slotRegistry, createTime);
@@ -122,8 +170,6 @@ public class OrderServiceImpl implements OrderService {
             orderMessage.setSlotId(slot.getId());
             orderMessage.setCreateTime(createTime);
 
-            // Step 2: 发送 RocketMQ 半消息，触发本地事务
-            // sendMessageInTransaction 同步等待 executeLocalTransaction 执行完毕再返回
             Message<OrderMessage> msg = MessageBuilder.withPayload(orderMessage)
                     .setHeader("orderId", orderId)
                     .build();
@@ -131,8 +177,6 @@ public class OrderServiceImpl implements OrderService {
             TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction(
                     "order-topic", msg, localTx);
 
-            // Step 3: 本地事务（Redis 减库存 + 写 order）与半消息提交均已完成
-            // checkLocalTransaction 接口供 broker 在超时时回查 Redis order 是否存在
             if (sendResult.getLocalTransactionState() == LocalTransactionState.COMMIT_MESSAGE) {
                 context.setResult(new Result(true, orderId));
             } else {

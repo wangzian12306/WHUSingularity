@@ -83,6 +83,7 @@ export interface InitStockRequest {
 
 export interface SnagOrderRequest {
   userId: string
+  productId?: string
 }
 
 export interface SnagOrderResponse {
@@ -171,4 +172,58 @@ export interface UpdateMerchantRequest {
   description?: string
   avatar?: string
   password?: string
+}
+
+// Product
+export interface ProductView {
+  productId: string
+  name: string
+  subtitle: string | null
+  mainImage: string | null
+  category: string | null
+  tags: string | null
+  status: number
+  price: number
+  version: number
+  createTime: string
+  updateTime: string
+  merchantStatus: number
+  sortOrder: number
+  totalQuantity: number | null
+  availableQuantity: number | null
+}
+
+export interface CreateProductRequest {
+  productId?: string
+  name: string
+  subtitle?: string
+  mainImage?: string
+  category?: string
+  tags?: string
+  status?: number
+  price: number
+  totalQuantity?: number
+}
+
+export interface UpdateProductRequest {
+  name?: string
+  subtitle?: string
+  mainImage?: string
+  category?: string
+  tags?: string
+  status?: number
+  price?: number
+  totalQuantity?: number
+}
+
+export interface PageResponse<T> {
+  records?: T[]
+  content?: T[]
+  totalElements?: number
+  totalPages?: number
+  total?: number
+  page?: number
+  pageNo?: number
+  size?: number
+  pageSize?: number
 }

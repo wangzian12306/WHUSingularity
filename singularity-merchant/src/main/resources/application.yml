@@ -25,18 +25,30 @@ spring:
         enabled: false
       config:
         enabled: false
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 6000ms
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
 
+jwt:
+  secret: whu-singularity-merchant-jwt-secret-key-2024
+
+product:
+  service:
+    url: http://localhost:8081
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true

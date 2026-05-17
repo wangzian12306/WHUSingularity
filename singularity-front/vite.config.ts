@@ -6,9 +6,12 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/user': 'http://localhost:8090',
-      '/api/order': 'http://localhost:8081',
+      '/api/merchant': 'http://localhost:8091',
+      '/api/product/public': 'http://localhost:8087',
+      '/api/product': 'http://localhost:8091',
       '/api/stock': 'http://localhost:8082',
-      '/api/merchant': 'http://localhost:9091',
+      '/api/order': 'http://localhost:8081',
+      '/api/inventory': 'http://localhost:8091',
     },
   },
 })

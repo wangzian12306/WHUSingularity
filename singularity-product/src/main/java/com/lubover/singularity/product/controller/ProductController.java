@@ -59,4 +59,13 @@ public class ProductController {
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
         return ApiResponse.success(productService.list(status, category, keyword, pageNo, pageSize));
     }
+
+    @GetMapping("/public/list")
+    public ApiResponse<PageResponse<ProductView>> publicList(
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "pageNo", defaultValue = "1") int pageNo,
+            @RequestParam(value = "pageSize", defaultValue = "100") int pageSize) {
+        return ApiResponse.success(productService.list(1, category, keyword, pageNo, pageSize));
+    }
 }

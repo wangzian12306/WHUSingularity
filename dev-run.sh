@@ -132,12 +132,14 @@ publish_nacos_config "singularity-order.yaml" "${ORDER_CONFIG}"
 publish_nacos_config "singularity-user.yaml" "${USER_CONFIG}"
 publish_nacos_config "singularity-stock.yaml" "${STOCK_CONFIG}"
 
-echo "[STEP 4/4] 启动后端服务实例 (user/order/stock 多实例；order 为 compose scale，默认 3 副本以对齐旧架构)..."
+echo "[STEP 4/4] 启动后端服务实例 (compose scale：user/stock 默认 1，order 默认 3)..."
 docker compose -f "${COMPOSE_FILE}" up -d --force-recreate \
+  --scale singularity-user=1 \
+  --scale singularity-stock=1 \
   --scale singularity-order=3 \
-  singularity-user-0 singularity-user-1 singularity-user-2 \
-  singularity-order singularity-order-lb \
-  singularity-stock-0 singularity-stock-1 singularity-stock-2
+  singularity-user singularity-stock \
+  singularity-order \
+  singularity-order-lb-1 singularity-order-lb-2 singularity-order-lb-3
 
 echo "[DONE] 后端开发环境已拉起"
 echo "查看状态: docker compose -f deploy/docker-compose.backend.yml ps"

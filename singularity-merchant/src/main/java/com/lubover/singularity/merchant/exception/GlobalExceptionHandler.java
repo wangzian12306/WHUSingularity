@@ -1,6 +1,7 @@
 package com.lubover.singularity.merchant.exception;
 
 import com.lubover.singularity.merchant.dto.ApiResponse;
+import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,13 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = exception.getErrorCode();
         return ResponseEntity.status(errorCode.getStatus())
                 .body(ApiResponse.failure(errorCode.getCode(), exception.getMessage()));
+    }
+
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFeignException(FeignException exception) {
+        log.error("Feign call failed: status={}, message={}", exception.status(), exception.getMessage());
+        return ResponseEntity.status(503)
+                .body(ApiResponse.failure("SERVICE_UNAVAILABLE", "Product service is temporarily unavailable"));
     }
 
     @ExceptionHandler(Exception.class)

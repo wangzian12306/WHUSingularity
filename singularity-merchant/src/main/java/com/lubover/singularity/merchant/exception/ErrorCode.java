@@ -9,14 +9,13 @@ public enum ErrorCode {
     MERCHANT_STATUS_INVALID(HttpStatus.BAD_REQUEST, "MERCHANT_STATUS_INVALID", "merchant status invalid"),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "product not found"),
     PRODUCT_NOT_BELONG_TO_MERCHANT(HttpStatus.FORBIDDEN, "PRODUCT_NOT_BELONG_TO_MERCHANT", "product not belong to this merchant"),
-    INVENTORY_NOT_FOUND(HttpStatus.NOT_FOUND, "INVENTORY_NOT_FOUND", "inventory not found"),
-    INVENTORY_INSUFFICIENT(HttpStatus.BAD_REQUEST, "INVENTORY_INSUFFICIENT", "inventory insufficient"),
-    INVENTORY_VERSION_MISMATCH(HttpStatus.CONFLICT, "INVENTORY_VERSION_MISMATCH", "inventory version mismatch"),
     AUTH_BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_BAD_CREDENTIALS", "bad credentials"),
     AUTH_TOKEN_MISSING(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_MISSING", "token missing"),
     AUTH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_INVALID", "token invalid"),
     AUTH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_EXPIRED", "token expired"),
     AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH_FORBIDDEN", "forbidden"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "unauthorized"),
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "internal server error"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error");
 
     private final HttpStatus status;

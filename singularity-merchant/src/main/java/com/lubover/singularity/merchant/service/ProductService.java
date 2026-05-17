@@ -1,31 +1,20 @@
 package com.lubover.singularity.merchant.service;
 
-import com.lubover.singularity.merchant.dto.ProductView;
-import com.lubover.singularity.merchant.entity.Product;
+import com.lubover.singularity.merchant.dto.*;
 
 import java.util.List;
 
 public interface ProductService {
 
-    Product createProduct(Product product);
+    ProductView createProduct(CreateProductRequest request);
 
-    Product getProductById(Long id);
+    ProductView updateProduct(String productId, UpdateProductRequest request);
 
-    ProductView getProductViewById(Long id);
+    void deleteProduct(String productId);
 
-    List<Product> getProductsByMerchantId(Long merchantId);
-
-    List<Product> getProductsByMerchantIdWithStatus(Long merchantId, Integer status);
+    ProductView getProduct(String productId);
 
     List<ProductView> getCurrentMerchantProducts();
 
-    Product updateProduct(Product product);
-
-    void updateProductStatus(Long id, Integer status);
-
-    void incrementSalesCount(Long id, Long count);
-
-    void incrementViewCount(Long id, Long count);
-
-    void deleteProduct(Long id);
+    void updateProductStatus(String productId, Integer status);
 }

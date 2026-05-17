@@ -13,6 +13,8 @@ import AdminUserList from './pages/admin/AdminUserList'
 import AdminStockList from './pages/admin/AdminStockList'
 import AdminOrderList from './pages/admin/AdminOrderList'
 import WebMCPDemo from './pages/WebMCPDemo'
+import MerchantProductList from './pages/merchant/MerchantProductList'
+import MerchantCenter from './pages/merchant/MerchantCenter'
 
 export default function App() {
   return (
@@ -40,6 +42,8 @@ export default function App() {
                 <Route path="/admin/stock" element={<AdminRoute><AdminStockList /></AdminRoute>} />
                 <Route path="/admin/orders" element={<AdminRoute><AdminOrderList /></AdminRoute>} />
                 <Route path="/webmcp-demo" element={<WebMCPDemo />} />
+                <Route path="/merchant/products" element={<MerchantProductList />} />
+                <Route path="/merchant/center" element={<MerchantCenter />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
