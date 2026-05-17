@@ -174,6 +174,50 @@ export interface UpdateMerchantRequest {
 }
 
 // Product
+export interface ProductCatalogView {
+  productId: string
+  name: string
+  subtitle: string | null
+  mainImage: string | null
+  category: string
+  tags: string | null
+  status: number
+  price: number
+  version: number
+  createTime: string
+  updateTime: string
+}
+
+export interface ProductPageResponse {
+  records: ProductCatalogView[]
+  total: number
+  pageNo: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface ProductStockView {
+  productId: string
+  availableQuantity: number
+  reservedQuantity: number
+  totalQuantity: number
+  version: number
+  updateTime: string
+}
+
+export interface ProductDetailResponse {
+  product: ProductCatalogView
+  stock: ProductStockView | null
+}
+
+export interface ProductListParams {
+  status?: number
+  category?: string
+  keyword?: string
+  pageNo?: number
+  pageSize?: number
+}
+
 export interface Product {
   id: number
   merchantId: number

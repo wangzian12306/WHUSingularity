@@ -203,7 +203,7 @@ services:
     image: maven:3.9.9-eclipse-temurin-21
     restart: unless-stopped
     working_dir: /workspace
-    command: sh -c "java -jar singularity-product/target/singularity-product-1.0-SNAPSHOT.jar"
+    command: sh -c "exec sh /workspace/deploy/product-docker-cmd.sh"
     environment:
       SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_product?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -215,6 +215,9 @@ services:
       ROCKETMQ_PRODUCER_GROUP: product-producer-group
       ROCKETMQ_CONSUMER_GROUP: product-cache-consumer-group
       SERVER_PORT: "8087"
+      # 覆盖 Nacos 中可能仅暴露 health 的配置，避免 scaler 抓取 /actuator/prometheus 落到静态资源而报 NoResourceFoundException
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,prometheus
+      MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED: "true"
     volumes:
       - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
@@ -222,6 +225,19 @@ services:
       - mysql
       - redis
       - nacos
+      - rmq-broker
+    ports:
+      - "8087:8087"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://127.0.0.1:8087/actuator/health >/dev/null || exit 1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
 
   singularity-merchant:
     image: maven:3.9.9-eclipse-temurin-21
@@ -312,11 +328,15 @@ services:
     ports:
       - "5173:80"
     depends_on:
+      singularity-gateway:
+        condition: service_started
       singularity-user:
         condition: service_started
       singularity-order:
         condition: service_started
       singularity-stock:
+        condition: service_started
+      singularity-product:
         condition: service_started
 
   # k6 在容器内直连 order（不经 LB）。默认三条车道均为 singularity-order:8081，多副本时可能连接仍集中在一台。

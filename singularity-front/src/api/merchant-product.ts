@@ -1,6 +1,5 @@
 import { request } from './client'
 import type { 
-  Product, 
   ProductView,
   CreateProductRequest,
   UpdateProductRequest,
