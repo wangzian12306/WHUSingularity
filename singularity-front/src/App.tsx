@@ -12,6 +12,7 @@ import UserCenter from './pages/UserCenter'
 import AdminUserList from './pages/admin/AdminUserList'
 import AdminStockList from './pages/admin/AdminStockList'
 import AdminOrderList from './pages/admin/AdminOrderList'
+import WebMCPDemo from './pages/WebMCPDemo'
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
                 <Route path="/admin/users" element={<AdminRoute><AdminUserList /></AdminRoute>} />
                 <Route path="/admin/stock" element={<AdminRoute><AdminStockList /></AdminRoute>} />
                 <Route path="/admin/orders" element={<AdminRoute><AdminOrderList /></AdminRoute>} />
+                <Route path="/webmcp-demo" element={<WebMCPDemo />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

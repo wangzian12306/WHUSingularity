@@ -35,6 +35,9 @@ export default function AppLayout() {
           <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/user')}>
             用户中心
           </Button>
+          <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }} onClick={() => navigate('/webmcp-demo')}>
+            WebMCP
+          </Button>
           {user?.role === 'admin' && (
             <Dropdown menu={{ items: adminItems }} placement="bottomRight">
               <Button type="link" style={{ color: 'rgba(255,255,255,0.85)' }}>
