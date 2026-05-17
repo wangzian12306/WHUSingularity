@@ -1,26 +1,42 @@
 server:
   port: 9090
+  ssl:
+    enabled: false
 
 spring:
   application:
     name: singularity-scaler
+  cloud:
+    nacos:
+      server-addr: ${SPRING_CLOUD_NACOS_SERVER_ADDR:127.0.0.1:8848}
+      discovery:
+        enabled: true
+        namespace: public
+        group: DEFAULT_GROUP
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true
 
 scaler:
   interval-seconds: 15
   cooldown-seconds: 120
-  history-size: 10
+  metrics-max-snapshot-gap-seconds: 120
+  # 两次成功 QPS 采样间隔超过此秒数则本周期不据 QPS 缩扩容，避免「长时间空窗 + 小增量」算成假低 QPS
+  # 可靠 QPS 下连续满足「应缩容」的调度轮数（每轮 interval-seconds）后才真正 scale down
+  scale-down-min-consecutive-polls: 3
+  compose-project: ${SCALER_COMPOSE_PROJECT:singularity}
+  compose-file: ${SCALER_COMPOSE_FILE:/workspace/deploy/docker-compose.backend.yml}
   services:
     - name: singularity-order
+      scale-mode: compose
+      compose-service: singularity-order
       base-port: 8081
       port-step: 2
       min-instances: 1

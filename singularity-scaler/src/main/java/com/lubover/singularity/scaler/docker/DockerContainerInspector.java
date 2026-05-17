@@ -61,6 +61,36 @@ public class DockerContainerInspector {
         return names;
     }
 
+    /**
+     * Compose 编排下副本容器名形如 {@code singularity-singularity-order-1}，不再匹配 {@code singularity-order-0}；
+     * 用 compose 标签计数。
+     */
+    public int countComposeReplicas(String composeProject, String composeService) {
+        if (composeProject == null || composeService == null) {
+            return 0;
+        }
+        try {
+            ProcessBuilder pb = new ProcessBuilder(
+                    "docker", "ps", "-q",
+                    "-f", "label=com.docker.compose.project=" + composeProject,
+                    "-f", "label=com.docker.compose.service=" + composeService
+            );
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            int n = 0;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                while (reader.readLine() != null) {
+                    n++;
+                }
+            }
+            process.waitFor();
+            return n;
+        } catch (Exception e) {
+            log.error("Failed to count compose replicas for project={} service={}", composeProject, composeService, e);
+            return 0;
+        }
+    }
+
     public int getMaxIndex(String serviceName) {
         String prefix = serviceName + "-";
         int max = -1;
