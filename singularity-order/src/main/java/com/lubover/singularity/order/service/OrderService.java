@@ -1,4 +1,4 @@
-﻿package com.lubover.singularity.order.service;
+package com.lubover.singularity.order.service;
 
 import com.lubover.singularity.api.Actor;
 import com.lubover.singularity.api.Result;

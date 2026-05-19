@@ -170,6 +170,12 @@ public class OrderServiceImpl implements OrderService {
             orderMessage.setSlotId(slot.getId());
             orderMessage.setCreateTime(createTime);
 
+            // 风控评分：读取 FraudDetectionInterceptor 写入的风险分数
+            Object riskObj = context.getValue("fraud.riskScore");
+            if (riskObj instanceof Double risk) {
+                orderMessage.setRiskScore(risk);
+            }
+
             Message<OrderMessage> msg = MessageBuilder.withPayload(orderMessage)
                     .setHeader("orderId", orderId)
                     .build();
