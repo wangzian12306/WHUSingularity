@@ -1,6 +1,5 @@
 package com.lubover.singularity.order.listener;
 
-import com.lubover.singularity.order.tx.OrderLocalTransaction;
 import org.apache.rocketmq.spring.annotation.RocketMQTransactionListener;
 import org.apache.rocketmq.spring.core.RocketMQLocalTransactionListener;
 import org.apache.rocketmq.spring.core.RocketMQLocalTransactionState;
@@ -11,15 +10,14 @@ import org.springframework.messaging.Message;
 import org.springframework.stereotype.Component;
 
 /**
- * RocketMQ 事务消息适配器，不包含任何业务逻辑。
+ * RocketMQ 事务消息适配器，仅用于 crash recovery（broker 回查）。
  *
  * <p>
- * {@link #executeLocalTransaction}：半消息发送成功后，broker 回调此方法。
- * 直接委托给由 handler 构造并通过 arg 传入的 {@link OrderLocalTransaction} 执行
- * （Redis 减库存 + 写 order）。
+ * {@link #executeLocalTransaction}：永远返回 UNKNOW。半消息发送和本地事务执行、
+ * commit/rollback 由 {@code OrderServiceImpl} 在主线程显式三步完成。
  *
  * <p>
- * {@link #checkLocalTransaction}：broker 在半消息长时间未确认时回查此接口。
+ * {@link #checkLocalTransaction}：主线程崩溃/超时时 broker 回查此接口。
  * 检查 Redis 中是否已有对应 order 记录来确定事务最终状态。
  */
 @Component
@@ -36,12 +34,7 @@ public class OrderTransactionListener implements RocketMQLocalTransactionListene
 
     @Override
     public RocketMQLocalTransactionState executeLocalTransaction(Message msg, Object arg) {
-        if (!(arg instanceof OrderLocalTransaction localTx)) {
-            log.error("unexpected arg type: {}", arg == null ? "null" : arg.getClass());
-            return RocketMQLocalTransactionState.ROLLBACK;
-        }
-        boolean ok = localTx.execute();
-        return ok ? RocketMQLocalTransactionState.COMMIT : RocketMQLocalTransactionState.ROLLBACK;
+        return RocketMQLocalTransactionState.UNKNOWN;
     }
 
     /**
