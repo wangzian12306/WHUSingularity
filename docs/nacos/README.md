@@ -131,6 +131,13 @@ spring:
     redis:
       host: localhost
       port: 6379
+# 若你在 Nacos 里维护了完整 singularity-product.yaml，请勿省略下面一段，
+# 否则 scaler 抓取 /actuator/prometheus 会 404（被当成静态资源）。
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
 ```
 
 ---

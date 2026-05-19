@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
-import { 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  InputNumber, 
-  Select, 
-  Space, 
-  message, 
-  Popconfirm, 
+import {
+  Table,
+  Button,
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  message,
+  Popconfirm,
   Tag,
   Card
 } from 'antd'
@@ -102,7 +102,7 @@ export default function MerchantProductList() {
     try {
       const res = await productApi.updateStatus(productId, status)
       if (res.success) {
-        message.success('状态更新成功')
+        message.success('状态更新成�?)
         fetchProducts()
       } else {
         message.error(res.error?.message ?? '更新失败')
@@ -113,7 +113,7 @@ export default function MerchantProductList() {
   }
 
   const getStatusTag = (status: number) => {
-    if (status === 1) return <Tag color="green">上架中</Tag>
+    if (status === 1) return <Tag color="green">上架�?/Tag>
     if (status === 0) return <Tag color="default">下架</Tag>
     return <Tag color="red">禁用</Tag>
   }
@@ -122,21 +122,21 @@ export default function MerchantProductList() {
     { title: '商品名称', dataIndex: 'name', key: 'name' },
     { title: '价格', dataIndex: 'price', key: 'price', render: (price: number) => `¥${price.toFixed(2)}` },
     { title: '分类', dataIndex: 'category', key: 'category' },
-    { 
-      title: '总库存', 
-      key: 'totalQuantity', 
+    {
+      title: '总库�?,
+      key: 'totalQuantity',
       render: (_: unknown, record: ProductView) => record.totalQuantity ?? '-',
     },
-    { 
-      title: '可用库存', 
-      key: 'availableQuantity', 
+    {
+      title: '可用库存',
+      key: 'availableQuantity',
       render: (_: unknown, record: ProductView) => {
         const qty = record.availableQuantity
         if (qty == null) return '-'
         return qty > 0 ? <Tag color="green">{qty}</Tag> : <Tag color="red">0</Tag>
       },
     },
-    { title: '状态', dataIndex: 'merchantStatus', key: 'merchantStatus', render: getStatusTag },
+    { title: '状�?, dataIndex: 'merchantStatus', key: 'merchantStatus', render: getStatusTag },
     {
       title: '操作',
       key: 'action',
@@ -155,7 +155,7 @@ export default function MerchantProductList() {
             </Button>
           )}
           <Popconfirm
-            title="确定要删除这个商品吗？"
+            title="确定要删除这个商品吗�?
             onConfirm={() => handleDelete(record.productId)}
             okText="确定"
             cancelText="取消"
@@ -196,17 +196,17 @@ export default function MerchantProductList() {
           <Form.Item
             name="name"
             label="商品名称"
-            rules={[{ required: true, message: '请输入商品名称' }]}
+            rules={[{ required: true, message: '请输入商品名�? }]}
           >
             <Input placeholder="商品名称" />
           </Form.Item>
-          <Form.Item name="subtitle" label="副标题">
-            <Input placeholder="副标题" />
+          <Form.Item name="subtitle" label="副标�?>
+            <Input placeholder="副标�? />
           </Form.Item>
           <Form.Item
             name="price"
             label="价格"
-            rules={[{ required: true, message: '请输入价格' }]}
+            rules={[{ required: true, message: '请输入价�? }]}
           >
             <InputNumber min={0} style={{ width: '100%' }} placeholder="价格" />
           </Form.Item>
@@ -224,9 +224,9 @@ export default function MerchantProductList() {
           <Form.Item name="tags" label="标签">
             <Input placeholder="标签，逗号分隔" />
           </Form.Item>
-          <Form.Item 
-            name="totalQuantity" 
-            label={editingProduct ? '库存数量（修改将覆盖原有库存）' : '库存数量'}
+          <Form.Item
+            name="totalQuantity"
+            label={editingProduct ? '库存数量（修改将覆盖原有库存�? : '库存数量'}
           >
             <InputNumber min={0} style={{ width: '100%' }} placeholder="库存数量" />
           </Form.Item>

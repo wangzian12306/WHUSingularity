@@ -1,40 +1,39 @@
-# Python API 集成测试小项目
+# Python API Integration Tests
 
-这个目录是一个独立的 Python 集成测试项目，用于测试已启动容器中的 `singularity-user` API。
+This directory contains black-box integration tests for services that are already running locally or in Docker Compose.
 
-## 测试覆盖
+## Covered Flows
 
-- `POST /api/user/register` 注册
-- `POST /api/user/login` 登录
-- `GET /api/user/me` 鉴权用户信息查询
-- 错误密码登录返回 401
+- User API: register, login, current user, invalid login.
+- Business flow: user login, stock preheat, order creation and status update.
+- Product API: CRUD, repeated reads for cache path, list query, stock aggregation, status switch, metrics snapshot.
 
-## 目录结构
+## Run
 
-```text
-api-integration-tests-python/
-  ├─ README.md
-  └─ tests/
-     └─ test_user_api_integration.py
-```
-
-## 运行方式
-
-在仓库根目录执行：
+From the repository root:
 
 ```powershell
 python -m unittest discover -s api-integration-tests-python/tests -p "test_*.py" -v
 ```
 
-## 可选环境变量
+Run product checks only:
 
-- `GATEWAY_BASE_URL`：Spring Cloud Gateway 根地址，默认 `http://localhost:8080`（与 compose 中 `8080:8080` 一致）。
-- `API_BASE_URL`：与 `GATEWAY_BASE_URL` 二选一，作为网关根地址（兼容旧说明）。
-- 直连某微服务（不经网关）时：`USER_API_BASE_URL`、`STOCK_API_BASE_URL`、`ORDER_API_BASE_URL`。
+```powershell
+python -m unittest discover -s api-integration-tests-python/tests -p "test_product_api_integration.py" -v
+```
 
-例如：
+## Environment Variables
+
+- `GATEWAY_BASE_URL`: Spring Cloud Gateway base URL, default `http://localhost:8080`.
+- `API_BASE_URL`: Backward-compatible alias for `GATEWAY_BASE_URL`.
+- `USER_API_BASE_URL`: Direct user service base URL when bypassing gateway.
+- `STOCK_API_BASE_URL`: Direct stock service base URL when bypassing gateway.
+- `ORDER_API_BASE_URL`: Direct order service base URL when bypassing gateway.
+- `PRODUCT_API_BASE_URL`: Direct product service base URL when bypassing gateway.
+
+Example:
 
 ```powershell
 $env:GATEWAY_BASE_URL="http://localhost:8080"
-python -m unittest discover -s api-integration-tests-python/tests -p "test_*.py" -v
+python -m unittest discover -s api-integration-tests-python/tests -p "test_product_api_integration.py" -v
 ```

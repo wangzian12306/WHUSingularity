@@ -94,6 +94,15 @@
                   AND is_deleted = 0
         </update>
 
+        <update id="updateStatusByProductId">
+                UPDATE `product`
+                SET status = #{status},
+                    version = version + 1,
+                    update_time = NOW()
+                WHERE product_id = #{productId}
+                  AND is_deleted = 0
+        </update>
+
         <update id="markDeleted">
                 UPDATE `product`
                 SET is_deleted = 1,

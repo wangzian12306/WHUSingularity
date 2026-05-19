@@ -9,21 +9,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Collections;
 
 /**
- * Cache-Aside 两级缓存组件。
- *
- * 读路径：本地 Caffeine → Redis → DB（由调用方回填）
- * 写路径：更新 DB 后调用 evict 同时删除两级缓存
- *
- * Key 规范：
- *   detail: product:detail:{productId}
- *   list:   product:list:{queryHash}
- *
- * 穿透保护：DB 查无结果时缓存空标记 "__NULL__"，TTL 60s
+ * Cache-aside component backed by local Caffeine and Redis.
  */
 @Component
 public class ProductCacheService {
@@ -33,13 +26,21 @@ public class ProductCacheService {
     static final String NULL_PLACEHOLDER = "__NULL__";
     static final String PREFIX_DETAIL = "product:detail:";
     static final String PREFIX_LIST = "product:list:";
+    static final String PREFIX_DETAIL_LOCK = "product:lock:detail:";
+    static final String PREFIX_LIST_LOCK = "product:lock:list:";
 
-    // detail 缓存 TTL：Redis 30 分钟，本地 5 分钟（由 Caffeine 配置控制）
     private static final Duration REDIS_DETAIL_TTL = Duration.ofMinutes(30);
-    // list 缓存 TTL 稍短，避免脏数据窗口太长
     private static final Duration REDIS_LIST_TTL = Duration.ofMinutes(10);
-    // 空值缓存 TTL（防穿透）
     private static final Duration NULL_TTL = Duration.ofSeconds(60);
+    private static final Duration CACHE_LOCK_TTL = Duration.ofSeconds(10);
+
+    private static final String UNLOCK_LUA = """
+            if redis.call('GET', KEYS[1]) == ARGV[1] then
+                return redis.call('DEL', KEYS[1])
+            end
+            return 0
+            """;
+    private static final DefaultRedisScript<Long> UNLOCK_SCRIPT = new DefaultRedisScript<>(UNLOCK_LUA, Long.class);
 
     private final Cache<String, String> localCache;
     private final RedisTemplate<String, String> redisTemplate;
@@ -54,27 +55,28 @@ public class ProductCacheService {
         this.objectMapper = objectMapper;
     }
 
-    // ── Detail ────────────────────────────────────────────────────────────────
-
-    public ProductView getDetail(String productId) {
+    public DetailCacheResult getDetail(String productId) {
         String key = PREFIX_DETAIL + productId;
 
-        // 1. 本地缓存
         String raw = localCache.getIfPresent(key);
         if (raw != null) {
             log.debug("cache hit [local] key={}", key);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserialize(raw, ProductView.class);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? DetailCacheResult.nullHit()
+                    : DetailCacheResult.value(deserialize(raw, ProductView.class));
         }
 
-        // 2. Redis
         raw = redisTemplate.opsForValue().get(key);
         if (raw != null) {
             log.debug("cache hit [redis] key={}", key);
             localCache.put(key, raw);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserialize(raw, ProductView.class);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? DetailCacheResult.nullHit()
+                    : DetailCacheResult.value(deserialize(raw, ProductView.class));
         }
 
-        return null; // miss，由 Service 查 DB 后回填
+        log.info("cache miss [detail] key={}", key);
+        return DetailCacheResult.miss();
     }
 
     public void putDetail(String productId, ProductView view) {
@@ -93,25 +95,42 @@ public class ProductCacheService {
         log.debug("cache evict key={}", key);
     }
 
-    // ── List ──────────────────────────────────────────────────────────────────
+    public void evictLocalDetail(String productId) {
+        String key = PREFIX_DETAIL + productId;
+        localCache.invalidate(key);
+        log.debug("local cache evict key={}", key);
+    }
 
-    public PageResponse<ProductView> getList(String queryHash) {
+    public boolean tryLockDetail(String productId, String token) {
+        return tryLock(PREFIX_DETAIL_LOCK + productId, token);
+    }
+
+    public void unlockDetail(String productId, String token) {
+        unlock(PREFIX_DETAIL_LOCK + productId, token);
+    }
+
+    public ListCacheResult getList(String queryHash) {
         String key = PREFIX_LIST + queryHash;
 
         String raw = localCache.getIfPresent(key);
         if (raw != null) {
             log.debug("cache hit [local] key={}", key);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserializePageResponse(raw);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? ListCacheResult.nullHit()
+                    : ListCacheResult.value(deserializePageResponse(raw));
         }
 
         raw = redisTemplate.opsForValue().get(key);
         if (raw != null) {
             log.debug("cache hit [redis] key={}", key);
             localCache.put(key, raw);
-            return NULL_PLACEHOLDER.equals(raw) ? null : deserializePageResponse(raw);
+            return NULL_PLACEHOLDER.equals(raw)
+                    ? ListCacheResult.nullHit()
+                    : ListCacheResult.value(deserializePageResponse(raw));
         }
 
-        return null;
+        log.info("cache miss [list] key={}", key);
+        return ListCacheResult.miss();
     }
 
     public void putList(String queryHash, PageResponse<ProductView> page) {
@@ -123,9 +142,7 @@ public class ProductCacheService {
         log.debug("cache put key={} ttl={}", key, ttl);
     }
 
-    /** 失效所有 list 缓存（pattern scan，写操作后调用） */
     public void evictAllLists() {
-        // 用 SCAN 避免 KEYS 阻塞；本地缓存做前缀批量失效
         localCache.asMap().keySet().removeIf(k -> k.startsWith(PREFIX_LIST));
         try {
             var keys = redisTemplate.keys(PREFIX_LIST + "*");
@@ -138,16 +155,24 @@ public class ProductCacheService {
         }
     }
 
-    // ── Key util ──────────────────────────────────────────────────────────────
+    public void evictLocalLists() {
+        localCache.asMap().keySet().removeIf(k -> k.startsWith(PREFIX_LIST));
+        log.debug("local cache evict list keys");
+    }
 
-    /** 将查询参数规范化为 key hash，避免 key 包含特殊字符 */
+    public boolean tryLockList(String queryHash, String token) {
+        return tryLock(PREFIX_LIST_LOCK + queryHash, token);
+    }
+
+    public void unlockList(String queryHash, String token) {
+        unlock(PREFIX_LIST_LOCK + queryHash, token);
+    }
+
     public static String buildListHash(Integer status, String category, String keyword, int pageNo, int pageSize) {
         String raw = String.format("s=%s&c=%s&kw=%s&p=%d&ps=%d",
                 status, category, keyword, pageNo, pageSize);
         return String.valueOf(raw.hashCode() & 0x7FFFFFFF);
     }
-
-    // ── Serde ─────────────────────────────────────────────────────────────────
 
     private String serialize(Object obj) {
         try {
@@ -172,6 +197,85 @@ public class ProductCacheService {
         } catch (Exception e) {
             log.warn("Cache deserialize PageResponse error, treating as miss: {}", e.getMessage());
             return null;
+        }
+    }
+
+    private boolean tryLock(String lockKey, String token) {
+        Boolean ok = redisTemplate.opsForValue().setIfAbsent(lockKey, token, CACHE_LOCK_TTL);
+        return Boolean.TRUE.equals(ok);
+    }
+
+    private void unlock(String lockKey, String token) {
+        try {
+            redisTemplate.execute(UNLOCK_SCRIPT, Collections.singletonList(lockKey), token);
+        } catch (Exception e) {
+            log.warn("unlock cache lock failed: key={} err={}", lockKey, e.getMessage());
+        }
+    }
+
+    public enum CacheState {
+        HIT_VALUE,
+        HIT_NULL,
+        MISS
+    }
+
+    public static class ListCacheResult {
+        private final CacheState state;
+        private final PageResponse<ProductView> value;
+
+        private ListCacheResult(CacheState state, PageResponse<ProductView> value) {
+            this.state = state;
+            this.value = value;
+        }
+
+        public static ListCacheResult value(PageResponse<ProductView> value) {
+            return new ListCacheResult(CacheState.HIT_VALUE, value);
+        }
+
+        public static ListCacheResult nullHit() {
+            return new ListCacheResult(CacheState.HIT_NULL, null);
+        }
+
+        public static ListCacheResult miss() {
+            return new ListCacheResult(CacheState.MISS, null);
+        }
+
+        public CacheState getState() {
+            return state;
+        }
+
+        public PageResponse<ProductView> getValue() {
+            return value;
+        }
+    }
+
+    public static class DetailCacheResult {
+        private final CacheState state;
+        private final ProductView value;
+
+        private DetailCacheResult(CacheState state, ProductView value) {
+            this.state = state;
+            this.value = value;
+        }
+
+        public static DetailCacheResult value(ProductView value) {
+            return new DetailCacheResult(CacheState.HIT_VALUE, value);
+        }
+
+        public static DetailCacheResult nullHit() {
+            return new DetailCacheResult(CacheState.HIT_NULL, null);
+        }
+
+        public static DetailCacheResult miss() {
+            return new DetailCacheResult(CacheState.MISS, null);
+        }
+
+        public CacheState getState() {
+            return state;
+        }
+
+        public ProductView getValue() {
+            return value;
         }
     }
 }

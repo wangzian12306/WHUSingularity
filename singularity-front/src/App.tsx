@@ -8,6 +8,7 @@ import AppLayout from './components/AppLayout'
 import LoginPage from './pages/Login'
 import RegisterPage from './pages/Register'
 import Home from './pages/Home'
+import ProductDetail from './pages/ProductDetail'
 import UserCenter from './pages/UserCenter'
 import AdminUserList from './pages/admin/AdminUserList'
 import AdminStockList from './pages/admin/AdminStockList'
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/" element={<Home />} />
+                <Route path="/products/:productId" element={<ProductDetail />} />
                 <Route path="/user" element={<UserCenter />} />
                 <Route path="/admin/users" element={<AdminRoute><AdminUserList /></AdminRoute>} />
                 <Route path="/admin/stock" element={<AdminRoute><AdminStockList /></AdminRoute>} />
