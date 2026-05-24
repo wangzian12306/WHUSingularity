@@ -12,6 +12,7 @@ export default defineConfig({
       '/api/stock': 'http://localhost:8082',
       '/api/order': 'http://localhost:8081',
       '/api/inventory': 'http://localhost:8091',
+      '/api': 'http://localhost:8080',
     },
   },
 })

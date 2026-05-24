@@ -1,5 +1,6 @@
 package com.lubover.singularity.order.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lubover.singularity.api.*;
 import com.lubover.singularity.api.impl.DefaultAllocator;
 import com.lubover.singularity.order.dto.OrderMessage;
@@ -10,13 +11,18 @@ import com.lubover.singularity.order.registry.SlotRegistry;
 import com.lubover.singularity.order.service.OrderService;
 import com.lubover.singularity.order.slot.StockSlot;
 import com.lubover.singularity.order.tx.OrderLocalTransaction;
+import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
+import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
+import org.apache.rocketmq.client.producer.TransactionListener;
 import org.apache.rocketmq.client.producer.TransactionSendResult;
+import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -26,18 +32,55 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class OrderServiceImpl implements OrderService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
     private static final BigDecimal PRODUCT_PRICE = BigDecimal.valueOf(99);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final Allocator allocator;
     private final OrderMapper orderMapper;
     private final UserClient userClient;
     private final SlotRegistry slotRegistry;
-    private final RocketMQTemplate rocketMQTemplate;
     private final StringRedisTemplate redisTemplate;
+    private final DefaultMQProducerImpl producerImpl;
+    private final ExecutorService executor = new ThreadPoolExecutor(
+            20, 50, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(10000),
+            new ThreadPoolExecutor.CallerRunsPolicy());
+
+    /**
+     * 原生 RocketMQ TransactionListener。
+     * {@code executeLocalTransaction} 永远返回 UNKNOW —— 主线程显式 commit/rollback。
+     * {@code checkLocalTransaction} 查 Redis —— 进程崩溃时 broker 回查兜底。
+     */
+    private final TransactionListener transactionListener = new TransactionListener() {
+        @Override
+        public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+            return LocalTransactionState.UNKNOW;
+        }
+
+        @Override
+        public LocalTransactionState checkLocalTransaction(MessageExt msg) {
+            String orderId = msg.getProperty("orderId");
+            if (orderId == null) {
+                return LocalTransactionState.ROLLBACK_MESSAGE;
+            }
+            Boolean exists = redisTemplate.hasKey("order:" + orderId);
+            LocalTransactionState state = Boolean.TRUE.equals(exists)
+                    ? LocalTransactionState.COMMIT_MESSAGE
+                    : LocalTransactionState.ROLLBACK_MESSAGE;
+            log.info("checkLocalTransaction: orderId={} -> {}", orderId, state);
+            return state;
+        }
+    };
 
     @Autowired
     public OrderServiceImpl(
@@ -49,66 +92,63 @@ public class OrderServiceImpl implements OrderService {
             SlotRegistry slotRegistry,
             OrderMapper orderMapper,
             UserClient userClient) {
+        DefaultMQProducer producer = (DefaultMQProducer) rocketMQTemplate.getProducer();
+        this.producerImpl = producer.getDefaultMQProducerImpl();
+
         this.allocator = new DefaultAllocator(
                 registry,
                 shardPolicy,
                 interceptors != null ? interceptors : Collections.emptyList(),
-                handler(rocketMQTemplate, redisTemplate, slotRegistry));
+                handler());
         this.orderMapper = orderMapper;
         this.userClient = userClient;
         this.slotRegistry = slotRegistry;
-        this.rocketMQTemplate = rocketMQTemplate;
         this.redisTemplate = redisTemplate;
     }
 
+    // ---- async API ----
+
     @Override
-    public Result snagOrder(Actor actor) {
-        return allocator.allocate(actor);
+    public CompletableFuture<Result> snagOrder(Actor actor) {
+        return CompletableFuture.supplyAsync(() -> allocator.allocate(actor), executor);
     }
 
     @Override
-    public Result snagOrderByProduct(Actor actor, String productId) {
-        StockSlot targetSlot = null;
-        for (StockSlot slot : slotRegistry.getAllSlots()) {
-            if (productId.equals(slot.getProductId())) {
-                if (!Boolean.TRUE.equals(slotRegistry.getEmptyStatus(slot.getId()))) {
-                    targetSlot = slot;
-                    break;
+    public CompletableFuture<Result> snagOrderByProduct(Actor actor, String productId) {
+        return CompletableFuture.supplyAsync(() -> {
+            StockSlot targetSlot = null;
+            for (StockSlot slot : slotRegistry.getAllSlots()) {
+                if (productId.equals(slot.getProductId())) {
+                    if (!Boolean.TRUE.equals(slotRegistry.getEmptyStatus(slot.getId()))) {
+                        targetSlot = slot;
+                        break;
+                    }
                 }
             }
-        }
-        if (targetSlot == null) {
-            return new Result(false, "商品库存不足或不存在");
-        }
+            if (targetSlot == null) {
+                return new Result(false, "商品库存不足或不存在");
+            }
 
-        String orderId = UUID.randomUUID().toString();
-        String redisStockKey = targetSlot.getRedisStockKey();
-        LocalDateTime createTime = LocalDateTime.now();
+            String orderId = UUID.randomUUID().toString();
+            String redisStockKey = targetSlot.getRedisStockKey();
+            LocalDateTime createTime = LocalDateTime.now();
 
-        OrderLocalTransaction localTx = new OrderLocalTransaction(
-                orderId, actor.getId(), targetSlot.getId(),
-                productId, redisStockKey, redisTemplate, slotRegistry, createTime);
+            OrderLocalTransaction localTx = new OrderLocalTransaction(
+                    orderId, actor.getId(), targetSlot.getId(),
+                    productId, redisStockKey, redisTemplate, slotRegistry, createTime);
 
-        OrderMessage orderMessage = new OrderMessage();
-        orderMessage.setOrderId(orderId);
-        orderMessage.setProductId(productId);
-        orderMessage.setUserId(actor.getId());
-        orderMessage.setSlotId(targetSlot.getId());
-        orderMessage.setCreateTime(createTime);
+            OrderMessage orderMessage = new OrderMessage();
+            orderMessage.setOrderId(orderId);
+            orderMessage.setProductId(productId);
+            orderMessage.setUserId(actor.getId());
+            orderMessage.setSlotId(targetSlot.getId());
+            orderMessage.setCreateTime(createTime);
 
-        Message<OrderMessage> msg = MessageBuilder.withPayload(orderMessage)
-                .setHeader("orderId", orderId)
-                .build();
-
-        TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction(
-                "order-topic", msg, localTx);
-
-        if (sendResult.getLocalTransactionState() == LocalTransactionState.COMMIT_MESSAGE) {
-            return new Result(true, orderId);
-        } else {
-            return new Result(false, "库存不足，抢单失败");
-        }
+            return executeTransaction(orderId, orderMessage, localTx);
+        }, executor);
     }
+
+    // ---- sync API ----
 
     @Override
     public Result payOrder(String orderId, String userId) {
@@ -144,9 +184,60 @@ public class OrderServiceImpl implements OrderService {
         return new Result(true, orderId);
     }
 
-    private Interceptor handler(RocketMQTemplate rocketMQTemplate,
-            StringRedisTemplate redisTemplate,
-            SlotRegistry slotRegistry) {
+    // ---- transaction ----
+
+    /**
+     * 三步显式事务（运行在 worker 线程上）：
+     * <ol>
+     * <li>发送半消息（listener 返回 UNKNOW）</li>
+     * <li>执行 Redis Lua（原子减库存 + 写订单）</li>
+     * <li>endTransaction commit 或 rollback</li>
+     * </ol>
+     */
+    private Result executeTransaction(String orderId, OrderMessage orderMessage,
+                                      OrderLocalTransaction localTx) {
+        Message nativeMsg;
+        try {
+            byte[] body = OBJECT_MAPPER.writeValueAsBytes(orderMessage);
+            nativeMsg = new Message("order-topic", body);
+            nativeMsg.putUserProperty("orderId", orderId);
+        } catch (Exception e) {
+            log.error("序列化 OrderMessage 失败: orderId={}", orderId, e);
+            return new Result(false, "序列化失败");
+        }
+
+        // Step 1: 发送半消息
+        TransactionSendResult sendResult;
+        try {
+            sendResult = producerImpl.sendMessageInTransaction(
+                    nativeMsg, transactionListener, null);
+        } catch (Exception e) {
+            log.error("发送半消息失败: orderId={}", orderId, e);
+            return new Result(false, "发送半消息失败");
+        }
+
+        // Step 2: 执行本地事务（Redis Lua）
+        boolean ok = localTx.execute();
+
+        // Step 3: commit 或 rollback
+        LocalTransactionState state = ok
+                ? LocalTransactionState.COMMIT_MESSAGE
+                : LocalTransactionState.ROLLBACK_MESSAGE;
+        try {
+            producerImpl.endTransaction(nativeMsg, sendResult, state, null);
+        } catch (Exception e) {
+            log.error("endTransaction 失败: orderId={} state={}", orderId, state, e);
+        }
+
+        return ok
+                ? new Result(true, orderId)
+                : new Result(false, "库存不足，抢单失败");
+    }
+
+    /**
+     * Allocator 的 handler 拦截器。在 worker 线程上被调用。
+     */
+    private Interceptor handler() {
         return context -> {
             Actor actor = context.getCurrActor();
             Slot slot = context.getCurrSlot();
@@ -170,18 +261,13 @@ public class OrderServiceImpl implements OrderService {
             orderMessage.setSlotId(slot.getId());
             orderMessage.setCreateTime(createTime);
 
-            Message<OrderMessage> msg = MessageBuilder.withPayload(orderMessage)
-                    .setHeader("orderId", orderId)
-                    .build();
-
-            TransactionSendResult sendResult = rocketMQTemplate.sendMessageInTransaction(
-                    "order-topic", msg, localTx);
-
-            if (sendResult.getLocalTransactionState() == LocalTransactionState.COMMIT_MESSAGE) {
-                context.setResult(new Result(true, orderId));
-            } else {
-                context.setResult(new Result(false, "stock insufficient or tx failed for slot: " + slot.getId()));
+            Object riskObj = context.getValue("fraud.riskScore");
+            if (riskObj instanceof Double risk) {
+                orderMessage.setRiskScore(risk);
             }
+
+            Result result = executeTransaction(orderId, orderMessage, localTx);
+            context.setResult(result);
         };
     }
 }

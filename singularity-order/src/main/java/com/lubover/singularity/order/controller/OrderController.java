@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,27 +37,29 @@ public class OrderController {
     }
 
     @PostMapping("/snag")
-    public Map<String, Object> snagOrder(@RequestBody Map<String, Object> request) {
+    public CompletableFuture<Map<String, Object>> snagOrder(@RequestBody Map<String, Object> request) {
         String userId = request.get("userId") == null ? null : String.valueOf(request.get("userId"));
         if (userId == null || userId.isBlank()) {
-            return failure("userId is required");
+            return CompletableFuture.completedFuture(failure("userId is required"));
         }
 
         String productId = request.get("productId") == null ? null : String.valueOf(request.get("productId"));
 
-        Result result;
+        CompletableFuture<Result> future;
         if (productId != null && !productId.isBlank()) {
-            result = orderService.snagOrderByProduct(new SimpleActor(userId), productId);
+            future = orderService.snagOrderByProduct(new SimpleActor(userId), productId);
         } else {
-            result = orderService.snagOrder(new SimpleActor(userId));
+            future = orderService.snagOrder(new SimpleActor(userId));
         }
 
-        if (result.isSuccess()) {
-            Map<String, Object> data = new HashMap<>();
-            data.put("orderId", result.getMessage());
-            return success(data);
-        }
-        return failure(result.getMessage());
+        return future.thenApply(result -> {
+            if (result.isSuccess()) {
+                Map<String, Object> data = new HashMap<>();
+                data.put("orderId", result.getMessage());
+                return success(data);
+            }
+            return failure(result.getMessage());
+        });
     }
 
     @GetMapping("/{orderId}")
