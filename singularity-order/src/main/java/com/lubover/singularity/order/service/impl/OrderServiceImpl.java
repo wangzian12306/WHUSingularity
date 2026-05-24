@@ -1,6 +1,7 @@
 package com.lubover.singularity.order.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.lubover.singularity.api.*;
 import com.lubover.singularity.api.impl.DefaultAllocator;
 import com.lubover.singularity.order.dto.OrderMessage;
@@ -43,7 +44,7 @@ public class OrderServiceImpl implements OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
     private static final BigDecimal PRODUCT_PRICE = BigDecimal.valueOf(99);
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private final Allocator allocator;
     private final OrderMapper orderMapper;

@@ -152,6 +152,16 @@ public class ScalingService {
 
             if (action == ScaleAction.SCALE_DOWN) {
                 double qps = qpsSample.policyQps().doubleValue();
+                double blockThreshold = dockerScaleDownBlockThreshold(config);
+                if (blockThreshold > 0 && dockerRm.isPresent()
+                        && dockerRm.get().getCpuUsage() >= blockThreshold) {
+                    consecutiveScaleDownSignals.remove(serviceName);
+                    log.info(
+                            "Service {}: scale-down blocked, docker cpu={} >= block threshold {} (qps={}, instances={})",
+                            serviceName, dockerRm.get().getCpuUsage(), blockThreshold, qps, currentInstances);
+                    return new ScaleResult(serviceName, ScaleAction.NONE,
+                            "docker cpu above scale-down block threshold " + blockThreshold);
+                }
                 int need = Math.max(1, scalerProperties.getScaleDownMinConsecutivePolls());
                 int confirmed = consecutiveScaleDownSignals.merge(serviceName, 1, Integer::sum);
                 if (confirmed < need) {
@@ -301,5 +311,13 @@ public class ScalingService {
         return containerInspector.countComposeReplicas(
                 scalerProperties.getComposeProject(),
                 composeServiceName(config));
+    }
+
+    /** 自动缩容保护：docker 聚合 CPU 仍高于该值时不缩容；0 表示关闭。 */
+    private double dockerScaleDownBlockThreshold(ServiceConfig config) {
+        if (config.getDockerCpuScaleDownBlockThreshold() > 0) {
+            return config.getDockerCpuScaleDownBlockThreshold();
+        }
+        return scalerProperties.getDockerCpuScaleDownBlockThreshold();
     }
 }
