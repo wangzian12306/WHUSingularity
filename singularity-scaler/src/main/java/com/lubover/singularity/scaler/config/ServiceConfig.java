@@ -25,6 +25,11 @@ public class ServiceConfig {
     private double memoryScaleDownThreshold = 0.30;
     private int scaleDownConsecutivePeriods = 3;
 
+    /**
+     * 覆盖全局 {@link ScalerProperties#getDockerCpuScaleDownBlockThreshold()}；≤0 表示沿用全局。
+     */
+    private double dockerCpuScaleDownBlockThreshold = 0.0;
+
     private String image;
     private Map<String, String> env;
 }

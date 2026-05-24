@@ -48,5 +48,10 @@ public class ScalerProperties {
      * 宜略大于 2～3 倍 {@link #intervalSeconds}。
      */
     private int dockerCpuSurgeMaxPollGapSeconds = 50;
+    /**
+     * 自动缩容前：若已采到 docker 聚合 CPU（0~1）不低于该值，则禁止缩容（与 JVM 低占用解耦，避免压测中误删副本）。
+     * 设为 0 表示关闭此保护。
+     */
+    private double dockerCpuScaleDownBlockThreshold = 0.35;
     private List<ServiceConfig> services;
 }
