@@ -21,6 +21,7 @@ public class ReadRoutingInterceptor<T> implements PipelineInterceptor<T> {
     public void handle(ExecutionContext<T> context) {
         ReadSlot slot = shardPolicy.select(context.getOperation(), registry.availableSlots());
         context.putMeta(ReadMeta.READ_SLOT_ID, slot.getId());
+        context.putValue(ReadMeta.READ_SLOT, slot);
         context.next();
     }
 }

@@ -42,19 +42,19 @@ public class CacheStampedeGuardInterceptor<T> implements PipelineInterceptor<T> 
     @Override
     public void handle(ExecutionContext<T> context) {
         String token = UUID.randomUUID().toString();
-        if (lockManager.tryLock(context.getOperation(), token)) {
+        if (lockManager.tryLock(context, token)) {
             try {
                 context.next();
                 context.putMeta(ReadMeta.SOURCE, ReadMeta.SOURCE_DB);
                 return;
             } finally {
-                lockManager.unlock(context.getOperation(), token);
+                lockManager.unlock(context, token);
             }
         }
 
         for (int attempt = 1; attempt <= maxWaitAttempts; attempt++) {
             context.putMeta(ReadMeta.LOCK_WAIT_COUNT, attempt);
-            CacheLookup<T> lookup = cache.get(context.getOperation());
+            CacheLookup<T> lookup = cache.get(context);
             if (lookup.getState() == CacheLookupState.HIT_VALUE) {
                 context.putMeta(ReadMeta.SOURCE, ReadMeta.SOURCE_CACHE);
                 context.putMeta(ReadMeta.CACHE_STATE, lookup.getState().name());

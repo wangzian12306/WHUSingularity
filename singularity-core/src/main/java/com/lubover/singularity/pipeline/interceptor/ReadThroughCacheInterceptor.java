@@ -21,7 +21,7 @@ public class ReadThroughCacheInterceptor<T> implements PipelineInterceptor<T> {
 
     @Override
     public void handle(ExecutionContext<T> context) {
-        CacheLookup<T> lookup = cache.get(context.getOperation());
+        CacheLookup<T> lookup = cache.get(context);
         context.putMeta(ReadMeta.CACHE_STATE, lookup.getState().name());
         if (lookup.getState() == CacheLookupState.HIT_VALUE) {
             context.putMeta(ReadMeta.SOURCE, ReadMeta.SOURCE_CACHE);
@@ -38,7 +38,7 @@ public class ReadThroughCacheInterceptor<T> implements PipelineInterceptor<T> {
 
         ExecutionResult<T> result = context.getResult();
         if (result != null && result.isSuccess()) {
-            cache.put(context.getOperation(), result.getData());
+            cache.put(context, result.getData());
         }
     }
 }
