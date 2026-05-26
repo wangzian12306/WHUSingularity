@@ -1,15 +1,23 @@
 package com.lubover.singularity.product.service.impl;
 
+import com.lubover.singularity.pipeline.ExecutionContext;
 import com.lubover.singularity.pipeline.ExecutionResult;
 import com.lubover.singularity.pipeline.Operation;
 import com.lubover.singularity.pipeline.PipelineExecutor;
+import com.lubover.singularity.pipeline.PipelineInterceptor;
 import com.lubover.singularity.pipeline.impl.DefaultPipelineExecutor;
 import com.lubover.singularity.pipeline.interceptor.CacheStampedeGuardInterceptor;
 import com.lubover.singularity.pipeline.interceptor.MetricsTraceInterceptor;
+import com.lubover.singularity.pipeline.interceptor.ReadDegradeInterceptor;
+import com.lubover.singularity.pipeline.interceptor.ReadRateLimitInterceptor;
+import com.lubover.singularity.pipeline.interceptor.ReadRoutingInterceptor;
 import com.lubover.singularity.pipeline.interceptor.ReadThroughCacheInterceptor;
 import com.lubover.singularity.pipeline.read.CacheNullHitHandler;
+import com.lubover.singularity.pipeline.read.HashReadShardPolicy;
 import com.lubover.singularity.pipeline.read.ReadCache;
 import com.lubover.singularity.pipeline.read.ReadLockManager;
+import com.lubover.singularity.pipeline.read.ReadSlot;
+import com.lubover.singularity.pipeline.read.StaticReadRegistry;
 import com.lubover.singularity.product.cache.ProductCacheService;
 import com.lubover.singularity.product.dto.ApiResponse;
 import com.lubover.singularity.product.dto.CreateProductRequest;
@@ -31,6 +39,7 @@ import com.lubover.singularity.product.read.ProductListReadCache;
 import com.lubover.singularity.product.read.ProductReadMeta;
 import com.lubover.singularity.product.read.ProductReadOperations;
 import com.lubover.singularity.product.read.ProductReadLockManager;
+import com.lubover.singularity.product.read.ProductReadSlotSupport;
 import com.lubover.singularity.product.service.ProductService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,6 +62,18 @@ public class ProductServiceImpl implements ProductService {
     private static final int STATUS_ONLINE = 1;
     private static final int CACHE_LOCK_MAX_WAIT_ATTEMPTS = 100;
     private static final long CACHE_LOCK_WAIT_MS = 50L;
+    private static final int READ_RATE_LIMIT_MAX_REQUESTS = 5_000;
+    private static final long READ_RATE_LIMIT_WINDOW_MS = 1_000L;
+    private static final StaticReadRegistry READ_REGISTRY = new StaticReadRegistry(List.of(
+            new ReadSlot("product-read-0", Map.of(
+                    ProductReadSlotSupport.REDIS_KEY_PREFIX, ProductReadSlotSupport.SHARD_PREFIX_0)),
+            new ReadSlot("product-read-1", Map.of(
+                    ProductReadSlotSupport.REDIS_KEY_PREFIX, ProductReadSlotSupport.SHARD_PREFIX_1)),
+            new ReadSlot("product-read-2", Map.of(
+                    ProductReadSlotSupport.REDIS_KEY_PREFIX, ProductReadSlotSupport.SHARD_PREFIX_2)),
+            new ReadSlot("product-read-3", Map.of(
+                    ProductReadSlotSupport.REDIS_KEY_PREFIX, ProductReadSlotSupport.SHARD_PREFIX_3))));
+    private static final HashReadShardPolicy READ_SHARD_POLICY = new HashReadShardPolicy();
 
     private final ProductMapper productMapper;
     private final ProductCacheService cacheService;
@@ -59,6 +81,10 @@ public class ProductServiceImpl implements ProductService {
     private final PipelineExecutor pipelineExecutor;
     private final StockClient stockClient;
     private final ProductObservabilityService observabilityService;
+    private final ReadRateLimitInterceptor<ProductView> detailRateLimitInterceptor =
+            new ReadRateLimitInterceptor<>(READ_RATE_LIMIT_MAX_REQUESTS, READ_RATE_LIMIT_WINDOW_MS);
+    private final ReadRateLimitInterceptor<PageResponse<ProductView>> listRateLimitInterceptor =
+            new ReadRateLimitInterceptor<>(READ_RATE_LIMIT_MAX_REQUESTS, READ_RATE_LIMIT_WINDOW_MS);
 
     public ProductServiceImpl(
             ProductMapper productMapper,
@@ -115,7 +141,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         ProductView view = ProductView.from(productMapper.selectByProductId(product.getProductId()));
-        cacheService.putDetail(view.getProductId(), view);
+        cacheService.putDetail(detailShardPrefix(view.getProductId()), view.getProductId(), view);
         cacheService.evictAllLists();
         eventPublisher.publishAfterCommit(new ProductUpdatedEvent(view.getProductId(), ProductUpdatedEvent.Action.CREATED));
         return view;
@@ -131,20 +157,12 @@ public class ProductServiceImpl implements ProductService {
         ReadLockManager lockManager = new ProductReadLockManager(cacheService);
         ExecutionResult<ProductView> result = pipelineExecutor.execute(
                 operation,
-                List.of(
-                        new MetricsTraceInterceptor<>(),
-                        new ReadThroughCacheInterceptor<>(readCache, detailNullHitHandler()),
-                        new CacheStampedeGuardInterceptor<>(
-                                lockManager,
-                                readCache,
-                                detailNullHitHandler(),
-                                CACHE_LOCK_MAX_WAIT_ATTEMPTS,
-                                CACHE_LOCK_WAIT_MS)),
+                detailReadInterceptors(readCache, lockManager),
                 context -> {
                     log.info("product detail cache miss, querying db with pipeline: productId={}", key);
                     Product product = productMapper.selectByProductId(key);
                     if (product == null) {
-                        cacheService.putDetail(key, null);
+                        cacheService.putDetail(ProductReadSlotSupport.redisKeyPrefix(context), key, null);
                         log.info("product detail db miss, cached null marker: productId={}", key);
                         throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
                     }
@@ -246,15 +264,7 @@ public class ProductServiceImpl implements ProductService {
                 normalizedPageSize);
         ExecutionResult<PageResponse<ProductView>> result = pipelineExecutor.execute(
                 operation,
-                List.of(
-                        new MetricsTraceInterceptor<>(),
-                        new ReadThroughCacheInterceptor<>(new ProductListReadCache(cacheService), listNullHitHandler()),
-                        new CacheStampedeGuardInterceptor<>(
-                                new ProductReadLockManager(cacheService),
-                                new ProductListReadCache(cacheService),
-                                listNullHitHandler(),
-                                CACHE_LOCK_MAX_WAIT_ATTEMPTS,
-                                CACHE_LOCK_WAIT_MS)),
+                listReadInterceptors(),
                 context -> {
                     log.info("product list cache miss, querying db with pipeline: hash={}", queryHash);
                     int offset = (normalizedPageNo - 1) * normalizedPageSize;
@@ -270,6 +280,57 @@ public class ProductServiceImpl implements ProductService {
         ensureReadSuccess(result);
         observabilityService.recordProductRead(String.valueOf(result.getMeta().get(ProductReadMeta.SOURCE)));
         return result.getData();
+    }
+
+    private List<PipelineInterceptor<ProductView>> detailReadInterceptors(
+            ReadCache<ProductView> readCache,
+            ReadLockManager lockManager) {
+        return List.of(
+                new MetricsTraceInterceptor<>(),
+                detailRateLimitInterceptor,
+                new ReadRoutingInterceptor<>(READ_REGISTRY, READ_SHARD_POLICY),
+                new ReadDegradeInterceptor<>(this::detailFallback),
+                new ReadThroughCacheInterceptor<>(readCache, detailNullHitHandler()),
+                new CacheStampedeGuardInterceptor<>(
+                        lockManager,
+                        readCache,
+                        detailNullHitHandler(),
+                        CACHE_LOCK_MAX_WAIT_ATTEMPTS,
+                        CACHE_LOCK_WAIT_MS));
+    }
+
+    private List<PipelineInterceptor<PageResponse<ProductView>>> listReadInterceptors() {
+        ReadCache<PageResponse<ProductView>> readCache = new ProductListReadCache(cacheService);
+        return List.of(
+                new MetricsTraceInterceptor<>(),
+                listRateLimitInterceptor,
+                new ReadRoutingInterceptor<>(READ_REGISTRY, READ_SHARD_POLICY),
+                new ReadDegradeInterceptor<>(this::listFallback),
+                new ReadThroughCacheInterceptor<>(readCache, listNullHitHandler()),
+                new CacheStampedeGuardInterceptor<>(
+                        new ProductReadLockManager(cacheService),
+                        readCache,
+                        listNullHitHandler(),
+                        CACHE_LOCK_MAX_WAIT_ATTEMPTS,
+                        CACHE_LOCK_WAIT_MS));
+    }
+
+    private void detailFallback(ExecutionContext<ProductView> context, Exception cause) {
+        if (cause instanceof BusinessException businessException) {
+            throw businessException;
+        }
+        log.warn("product detail read degraded: key={} err={}",
+                context.getOperation().getKey(), cause.getMessage());
+        context.setResult(ExecutionResult.failure("READ_DEGRADED", "product detail temporarily unavailable"));
+    }
+
+    private void listFallback(ExecutionContext<PageResponse<ProductView>> context, Exception cause) {
+        if (cause instanceof BusinessException businessException) {
+            throw businessException;
+        }
+        log.warn("product list read degraded: key={} err={}",
+                context.getOperation().getKey(), cause.getMessage());
+        context.setResult(ExecutionResult.success(emptyPage(context.getOperation())));
     }
 
     private CacheNullHitHandler<ProductView> detailNullHitHandler() {
@@ -322,6 +383,15 @@ public class ProductServiceImpl implements ProductService {
         cacheService.evictDetail(productId);
         cacheService.evictAllLists();
         log.info("product cache evicted after write: productId={}", productId);
+    }
+
+    private String detailShardPrefix(String productId) {
+        ReadSlot slot = READ_SHARD_POLICY.select(ProductReadOperations.detail(productId), READ_REGISTRY.availableSlots());
+        Object prefix = slot.getMetadata().get(ProductReadSlotSupport.REDIS_KEY_PREFIX);
+        if (prefix instanceof String value && !value.isBlank()) {
+            return value;
+        }
+        return ProductReadSlotSupport.LEGACY_PREFIX;
     }
 
     private void validateCreateRequest(CreateProductRequest request) {

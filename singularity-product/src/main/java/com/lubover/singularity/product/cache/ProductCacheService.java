@@ -13,7 +13,9 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Cache-aside component backed by local Caffeine and Redis.
@@ -24,10 +26,16 @@ public class ProductCacheService {
     private static final Logger log = LoggerFactory.getLogger(ProductCacheService.class);
 
     static final String NULL_PLACEHOLDER = "__NULL__";
-    static final String PREFIX_DETAIL = "product:detail:";
-    static final String PREFIX_LIST = "product:list:";
-    static final String PREFIX_DETAIL_LOCK = "product:lock:detail:";
-    static final String PREFIX_LIST_LOCK = "product:lock:list:";
+    static final String DEFAULT_KEY_PREFIX = "product:";
+    static final List<String> SHARD_KEY_PREFIXES = List.of(
+            "product:s0:",
+            "product:s1:",
+            "product:s2:",
+            "product:s3:");
+    static final String DETAIL_SUFFIX = "detail:";
+    static final String LIST_SUFFIX = "list:";
+    static final String DETAIL_LOCK_SUFFIX = "lock:detail:";
+    static final String LIST_LOCK_SUFFIX = "lock:list:";
 
     private static final Duration REDIS_DETAIL_TTL = Duration.ofMinutes(30);
     private static final Duration REDIS_LIST_TTL = Duration.ofMinutes(10);
@@ -56,7 +64,11 @@ public class ProductCacheService {
     }
 
     public DetailCacheResult getDetail(String productId) {
-        String key = PREFIX_DETAIL + productId;
+        return getDetail(DEFAULT_KEY_PREFIX, productId);
+    }
+
+    public DetailCacheResult getDetail(String keyPrefix, String productId) {
+        String key = detailKey(keyPrefix, productId);
 
         String raw = localCache.getIfPresent(key);
         if (raw != null) {
@@ -80,7 +92,11 @@ public class ProductCacheService {
     }
 
     public void putDetail(String productId, ProductView view) {
-        String key = PREFIX_DETAIL + productId;
+        putDetail(DEFAULT_KEY_PREFIX, productId, view);
+    }
+
+    public void putDetail(String keyPrefix, String productId, ProductView view) {
+        String key = detailKey(keyPrefix, productId);
         String raw = view != null ? serialize(view) : NULL_PLACEHOLDER;
         Duration ttl = view != null ? REDIS_DETAIL_TTL : NULL_TTL;
         localCache.put(key, raw);
@@ -89,28 +105,40 @@ public class ProductCacheService {
     }
 
     public void evictDetail(String productId) {
-        String key = PREFIX_DETAIL + productId;
-        localCache.invalidate(key);
-        redisTemplate.delete(key);
-        log.debug("cache evict key={}", key);
+        List<String> keys = allDetailKeys(productId);
+        keys.forEach(localCache::invalidate);
+        redisTemplate.delete(keys);
+        log.debug("cache evict detail keys={}", keys);
     }
 
     public void evictLocalDetail(String productId) {
-        String key = PREFIX_DETAIL + productId;
-        localCache.invalidate(key);
-        log.debug("local cache evict key={}", key);
+        List<String> keys = allDetailKeys(productId);
+        keys.forEach(localCache::invalidate);
+        log.debug("local cache evict detail keys={}", keys);
     }
 
     public boolean tryLockDetail(String productId, String token) {
-        return tryLock(PREFIX_DETAIL_LOCK + productId, token);
+        return tryLockDetail(DEFAULT_KEY_PREFIX, productId, token);
+    }
+
+    public boolean tryLockDetail(String keyPrefix, String productId, String token) {
+        return tryLock(detailLockKey(keyPrefix, productId), token);
     }
 
     public void unlockDetail(String productId, String token) {
-        unlock(PREFIX_DETAIL_LOCK + productId, token);
+        unlockDetail(DEFAULT_KEY_PREFIX, productId, token);
+    }
+
+    public void unlockDetail(String keyPrefix, String productId, String token) {
+        unlock(detailLockKey(keyPrefix, productId), token);
     }
 
     public ListCacheResult getList(String queryHash) {
-        String key = PREFIX_LIST + queryHash;
+        return getList(DEFAULT_KEY_PREFIX, queryHash);
+    }
+
+    public ListCacheResult getList(String keyPrefix, String queryHash) {
+        String key = listKey(keyPrefix, queryHash);
 
         String raw = localCache.getIfPresent(key);
         if (raw != null) {
@@ -134,7 +162,11 @@ public class ProductCacheService {
     }
 
     public void putList(String queryHash, PageResponse<ProductView> page) {
-        String key = PREFIX_LIST + queryHash;
+        putList(DEFAULT_KEY_PREFIX, queryHash, page);
+    }
+
+    public void putList(String keyPrefix, String queryHash, PageResponse<ProductView> page) {
+        String key = listKey(keyPrefix, queryHash);
         String raw = page != null ? serialize(page) : NULL_PLACEHOLDER;
         Duration ttl = page != null ? REDIS_LIST_TTL : NULL_TTL;
         localCache.put(key, raw);
@@ -143,12 +175,19 @@ public class ProductCacheService {
     }
 
     public void evictAllLists() {
-        localCache.asMap().keySet().removeIf(k -> k.startsWith(PREFIX_LIST));
+        List<String> prefixes = allListPrefixes();
+        localCache.asMap().keySet().removeIf(k -> prefixes.stream().anyMatch(k::startsWith));
         try {
-            var keys = redisTemplate.keys(PREFIX_LIST + "*");
-            if (keys != null && !keys.isEmpty()) {
-                redisTemplate.delete(keys);
-                log.debug("cache evict {} list keys", keys.size());
+            List<String> keysToDelete = new ArrayList<>();
+            for (String prefix : prefixes) {
+                var keys = redisTemplate.keys(prefix + "*");
+                if (keys != null && !keys.isEmpty()) {
+                    keysToDelete.addAll(keys);
+                }
+            }
+            if (!keysToDelete.isEmpty()) {
+                redisTemplate.delete(keysToDelete);
+                log.debug("cache evict {} list keys", keysToDelete.size());
             }
         } catch (Exception e) {
             log.warn("evictAllLists redis error: {}", e.getMessage());
@@ -156,16 +195,25 @@ public class ProductCacheService {
     }
 
     public void evictLocalLists() {
-        localCache.asMap().keySet().removeIf(k -> k.startsWith(PREFIX_LIST));
+        List<String> prefixes = allListPrefixes();
+        localCache.asMap().keySet().removeIf(k -> prefixes.stream().anyMatch(k::startsWith));
         log.debug("local cache evict list keys");
     }
 
     public boolean tryLockList(String queryHash, String token) {
-        return tryLock(PREFIX_LIST_LOCK + queryHash, token);
+        return tryLockList(DEFAULT_KEY_PREFIX, queryHash, token);
+    }
+
+    public boolean tryLockList(String keyPrefix, String queryHash, String token) {
+        return tryLock(listLockKey(keyPrefix, queryHash), token);
     }
 
     public void unlockList(String queryHash, String token) {
-        unlock(PREFIX_LIST_LOCK + queryHash, token);
+        unlockList(DEFAULT_KEY_PREFIX, queryHash, token);
+    }
+
+    public void unlockList(String keyPrefix, String queryHash, String token) {
+        unlock(listLockKey(keyPrefix, queryHash), token);
     }
 
     public static String buildListHash(Integer status, String category, String keyword, int pageNo, int pageSize) {
@@ -211,6 +259,47 @@ public class ProductCacheService {
         } catch (Exception e) {
             log.warn("unlock cache lock failed: key={} err={}", lockKey, e.getMessage());
         }
+    }
+
+    private String detailKey(String keyPrefix, String productId) {
+        return normalizePrefix(keyPrefix) + DETAIL_SUFFIX + productId;
+    }
+
+    private String listKey(String keyPrefix, String queryHash) {
+        return normalizePrefix(keyPrefix) + LIST_SUFFIX + queryHash;
+    }
+
+    private String detailLockKey(String keyPrefix, String productId) {
+        return normalizePrefix(keyPrefix) + DETAIL_LOCK_SUFFIX + productId;
+    }
+
+    private String listLockKey(String keyPrefix, String queryHash) {
+        return normalizePrefix(keyPrefix) + LIST_LOCK_SUFFIX + queryHash;
+    }
+
+    private String normalizePrefix(String keyPrefix) {
+        if (keyPrefix == null || keyPrefix.isBlank()) {
+            return DEFAULT_KEY_PREFIX;
+        }
+        return keyPrefix.endsWith(":") ? keyPrefix : keyPrefix + ":";
+    }
+
+    private List<String> allDetailKeys(String productId) {
+        List<String> keys = new ArrayList<>();
+        keys.add(detailKey(DEFAULT_KEY_PREFIX, productId));
+        SHARD_KEY_PREFIXES.stream()
+                .map(prefix -> detailKey(prefix, productId))
+                .forEach(keys::add);
+        return keys;
+    }
+
+    private List<String> allListPrefixes() {
+        List<String> prefixes = new ArrayList<>();
+        prefixes.add(DEFAULT_KEY_PREFIX + LIST_SUFFIX);
+        SHARD_KEY_PREFIXES.stream()
+                .map(prefix -> normalizePrefix(prefix) + LIST_SUFFIX)
+                .forEach(prefixes::add);
+        return prefixes;
     }
 
     public enum CacheState {
