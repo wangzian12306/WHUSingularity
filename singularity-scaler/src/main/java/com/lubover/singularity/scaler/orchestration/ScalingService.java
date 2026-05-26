@@ -66,10 +66,38 @@ public class ScalingService {
         int dockerCount = dockerInstanceCount(config);
         state.setInstanceCount(Math.max(nacosCount, dockerCount));
         state.setCurrentQps(metricsScraper.getDisplayQps(config.getName()));
+        metricHistory.latest(config.getName()).ifPresent(metrics -> {
+            state.setAvgCpuUsage(metrics.getCpuUsage());
+            state.setAvgMemoryUsage(metrics.getMemoryUsage());
+        });
         state.setCooldownActive(cooldownManager.isCooldownActive(config.getName(), scalerProperties.getCooldownSeconds()));
         Long lastTime = cooldownManager.getLastActionTime(config.getName());
         state.setLastActionTime(lastTime != null ? lastTime : 0);
         return state;
+    }
+
+    public Map<String, Object> getPanelSnapshot() {
+        List<ServiceState> services = getAllServiceStates();
+        int totalInstances = services.stream().mapToInt(ServiceState::getInstanceCount).sum();
+        double totalQps = services.stream().mapToDouble(ServiceState::getCurrentQps).sum();
+        double avgCpu = services.isEmpty()
+                ? 0.0
+                : services.stream().mapToDouble(ServiceState::getAvgCpuUsage).average().orElse(0.0);
+        double avgMemory = services.isEmpty()
+                ? 0.0
+                : services.stream().mapToDouble(ServiceState::getAvgMemoryUsage).average().orElse(0.0);
+        long cooldownServices = services.stream().filter(ServiceState::isCooldownActive).count();
+        return Map.of(
+                "generatedAt", System.currentTimeMillis(),
+                "intervalSeconds", scalerProperties.getIntervalSeconds(),
+                "cooldownSeconds", scalerProperties.getCooldownSeconds(),
+                "totalServices", services.size(),
+                "totalInstances", totalInstances,
+                "totalQps", totalQps,
+                "avgCpuUsage", avgCpu,
+                "avgMemoryUsage", avgMemory,
+                "cooldownServices", cooldownServices,
+                "services", services);
     }
 
     public ScaleResult evaluateAndScale(ServiceConfig config) {

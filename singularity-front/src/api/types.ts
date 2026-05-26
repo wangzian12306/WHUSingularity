@@ -277,3 +277,28 @@ export interface AdjustInventoryRequest {
   quantity: number
   remark?: string
 }
+
+// Scaler monitor
+export interface ServiceState {
+  serviceName: string
+  instanceCount: number
+  currentQps: number
+  avgCpuUsage: number
+  avgMemoryUsage: number
+  cooldownActive: boolean
+  lastAction: string | null
+  lastActionTime: number
+}
+
+export interface ScalerPanelSnapshot {
+  generatedAt: number
+  intervalSeconds: number
+  cooldownSeconds: number
+  totalServices: number
+  totalInstances: number
+  totalQps: number
+  avgCpuUsage: number
+  avgMemoryUsage: number
+  cooldownServices: number
+  services: ServiceState[]
+}

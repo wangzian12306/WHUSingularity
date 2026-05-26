@@ -27,6 +27,7 @@
 | 用户中心 `/user` | 用户信息卡片、余额充值 Modal、订单列表分页 Table | `pages/UserCenter.tsx` |
 | Admin 库存管理 `/admin/stock` | 库存列表 Table、初始化 Modal、变更日志 Modal | `pages/admin/AdminStockList.tsx` |
 | Admin 订单管理 `/admin/orders` | 全部订单列表 Table、userId + status 筛选、分页 | `pages/admin/AdminOrderList.tsx` |
+| Admin 系统监控 `/admin/monitor` | Scaler 服务状态面板、QPS/CPU/内存/实例数、Product 业务指标 | `pages/admin/AdminMonitorPanel.tsx`, `api/scaler.ts` |
 | WHU 主题 | Ant Design ConfigProvider 配色 | `App.tsx` |
 | WebMCP 集成 | `@mcp-b/webmcp-polyfill` 初始化，4 个业务 tools 注册 | `webmcp/tools.ts`, `main.tsx`, `Home.tsx` |
 | Vite 代理 | `/api/user` → 8090, `/api/order` → 8081, `/api/stock` → 8082, `/api/merchant` → 9091 | `vite.config.ts` |
@@ -97,6 +98,7 @@
 | 6 | **Admin 库存管理** `/admin/stock` | 已完成 |
 | 7 | **Admin 订单管理** `/admin/orders` | 已完成 |
 | 8 | **WebMCP 集成** | 已完成 |
+| 9 | **Admin 系统监控** `/admin/monitor` | 已完成 |
 
 ---
 

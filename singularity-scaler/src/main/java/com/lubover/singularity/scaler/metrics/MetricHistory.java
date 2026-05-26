@@ -42,6 +42,14 @@ public class MetricHistory {
         return result;
     }
 
+    public Optional<ResourceMetrics> latest(String serviceName) {
+        ArrayDeque<ResourceMetrics> deque = histories.get(serviceName);
+        if (deque == null || deque.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(deque.peekLast());
+    }
+
     public boolean allRecentBelow(String serviceName, int n, Predicate<ResourceMetrics> predicate) {
         List<ResourceMetrics> recent = recent(serviceName, n);
         if (recent.size() < n) {
