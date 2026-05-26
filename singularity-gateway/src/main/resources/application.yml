@@ -29,6 +29,10 @@ spring:
           uri: lb://singularity-merchant
           predicates:
             - Path=/api/inventory/**
+        - id: scaler-route
+          uri: lb://singularity-scaler
+          predicates:
+            - Path=/api/scaler/**
 
 management:
   endpoints:
