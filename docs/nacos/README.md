@@ -63,6 +63,16 @@ singularity:
       - id: bucket-2
         redis-key: stock:bucket-2
         product-id: PROD_002
+    # 风控拦截器（默认开启）
+    # 对每次抢单执行行为指纹计算（Feature Hashing），检测黄牛/脚本异常流量。
+    # 高风险请求直接拦截，不进入库存分配。
+    # hash-rounds 越高检测越准但 CPU 开销越大，高并发下会触发 scaler 扩容。
+    fraud-detection:
+      enabled: true           # 风控开关
+      hash-rounds: 8          # 特征哈希轮数（4=轻量，8=标准，16=深度）
+      risk-threshold: 0.85    # 拦截阈值（0.0~1.0）
+      window-seconds: 5       # 行为分析滑动窗口
+      max-requests-per-window: 100  # 窗口内最大请求数
 ```
 
 ---
