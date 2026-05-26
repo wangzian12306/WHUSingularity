@@ -4,11 +4,14 @@ import com.lubover.singularity.pipeline.ExecutionContext;
 import com.lubover.singularity.pipeline.Operation;
 import com.lubover.singularity.pipeline.read.CacheLookup;
 import com.lubover.singularity.pipeline.read.ReadCache;
+import com.lubover.singularity.pipeline.read.ReadMeta;
 import com.lubover.singularity.product.cache.ProductCacheService;
 import com.lubover.singularity.product.cache.ProductCacheService.CacheState;
 import com.lubover.singularity.product.cache.ProductCacheService.ListCacheResult;
 import com.lubover.singularity.product.dto.PageResponse;
 import com.lubover.singularity.product.dto.ProductView;
+
+import java.util.Map;
 
 public class ProductListReadCache implements ReadCache<PageResponse<ProductView>> {
 
@@ -34,10 +37,10 @@ public class ProductListReadCache implements ReadCache<PageResponse<ProductView>
 
     private CacheLookup<PageResponse<ProductView>> toLookup(ListCacheResult result) {
         if (result.getState() == CacheState.HIT_VALUE) {
-            return CacheLookup.value(result.getValue());
+            return CacheLookup.value(result.getValue()).withMeta(versionMeta(result.getVersion()));
         }
         if (result.getState() == CacheState.HIT_NULL) {
-            return CacheLookup.nullHit();
+            return CacheLookup.<PageResponse<ProductView>>nullHit().withMeta(versionMeta(result.getVersion()));
         }
         return CacheLookup.miss();
     }
@@ -64,5 +67,9 @@ public class ProductListReadCache implements ReadCache<PageResponse<ProductView>
 
     private String queryHash(Operation operation) {
         return String.valueOf(operation.getMetadata().get(ProductReadOperations.META_QUERY_HASH));
+    }
+
+    private Map<String, Object> versionMeta(Long version) {
+        return version == null ? Map.of() : Map.of(ReadMeta.CACHE_VERSION, version);
     }
 }

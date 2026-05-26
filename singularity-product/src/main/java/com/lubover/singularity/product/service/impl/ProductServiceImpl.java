@@ -34,7 +34,9 @@ import com.lubover.singularity.product.exception.ErrorCode;
 import com.lubover.singularity.product.feign.StockClient;
 import com.lubover.singularity.product.mapper.ProductMapper;
 import com.lubover.singularity.product.observability.ProductObservabilityService;
+import com.lubover.singularity.product.read.ProductDetailCacheConsistencyPolicy;
 import com.lubover.singularity.product.read.ProductDetailReadCache;
+import com.lubover.singularity.product.read.ProductListCacheConsistencyPolicy;
 import com.lubover.singularity.product.read.ProductListReadCache;
 import com.lubover.singularity.product.read.ProductReadMeta;
 import com.lubover.singularity.product.read.ProductReadOperations;
@@ -141,6 +143,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         ProductView view = ProductView.from(productMapper.selectByProductId(product.getProductId()));
+        markDirty(view);
         cacheService.putDetail(detailShardPrefix(view.getProductId()), view.getProductId(), view);
         cacheService.evictAllLists();
         eventPublisher.publishAfterCommit(new ProductUpdatedEvent(view.getProductId(), ProductUpdatedEvent.Action.CREATED));
@@ -206,6 +209,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         ProductView view = ProductView.from(productMapper.selectByProductId(productId.trim()));
+        markDirty(view);
         evictAfterWrite(productId.trim());
         eventPublisher.publishAfterCommit(new ProductUpdatedEvent(productId.trim(), ProductUpdatedEvent.Action.UPDATED));
         return view;
@@ -226,6 +230,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         ProductView view = ProductView.from(productMapper.selectByProductId(productId.trim()));
+        markDirty(view);
         evictAfterWrite(productId.trim());
         eventPublisher.publishAfterCommit(new ProductUpdatedEvent(productId.trim(), ProductUpdatedEvent.Action.UPDATED));
         return view;
@@ -235,10 +240,15 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(String productId) {
         validateProductId(productId);
+        Product exists = productMapper.selectByProductId(productId.trim());
+        if (exists == null) {
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
         int affected = productMapper.markDeleted(productId.trim());
         if (affected <= 0) {
             throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
         }
+        markDirty(productId.trim(), exists.getVersion() == null ? null : exists.getVersion() + 1);
         evictAfterWrite(productId.trim());
         eventPublisher.publishAfterCommit(new ProductUpdatedEvent(productId.trim(), ProductUpdatedEvent.Action.DELETED));
     }
@@ -290,13 +300,17 @@ public class ProductServiceImpl implements ProductService {
                 detailRateLimitInterceptor,
                 new ReadRoutingInterceptor<>(READ_REGISTRY, READ_SHARD_POLICY),
                 new ReadDegradeInterceptor<>(this::detailFallback),
-                new ReadThroughCacheInterceptor<>(readCache, detailNullHitHandler()),
+                new ReadThroughCacheInterceptor<>(
+                        readCache,
+                        detailNullHitHandler(),
+                        new ProductDetailCacheConsistencyPolicy(cacheService)),
                 new CacheStampedeGuardInterceptor<>(
                         lockManager,
                         readCache,
                         detailNullHitHandler(),
                         CACHE_LOCK_MAX_WAIT_ATTEMPTS,
-                        CACHE_LOCK_WAIT_MS));
+                        CACHE_LOCK_WAIT_MS,
+                        new ProductDetailCacheConsistencyPolicy(cacheService)));
     }
 
     private List<PipelineInterceptor<PageResponse<ProductView>>> listReadInterceptors() {
@@ -306,13 +320,17 @@ public class ProductServiceImpl implements ProductService {
                 listRateLimitInterceptor,
                 new ReadRoutingInterceptor<>(READ_REGISTRY, READ_SHARD_POLICY),
                 new ReadDegradeInterceptor<>(this::listFallback),
-                new ReadThroughCacheInterceptor<>(readCache, listNullHitHandler()),
+                new ReadThroughCacheInterceptor<>(
+                        readCache,
+                        listNullHitHandler(),
+                        new ProductListCacheConsistencyPolicy(cacheService)),
                 new CacheStampedeGuardInterceptor<>(
                         new ProductReadLockManager(cacheService),
                         readCache,
                         listNullHitHandler(),
                         CACHE_LOCK_MAX_WAIT_ATTEMPTS,
-                        CACHE_LOCK_WAIT_MS));
+                        CACHE_LOCK_WAIT_MS,
+                        new ProductListCacheConsistencyPolicy(cacheService)));
     }
 
     private void detailFallback(ExecutionContext<ProductView> context, Exception cause) {
@@ -383,6 +401,15 @@ public class ProductServiceImpl implements ProductService {
         cacheService.evictDetail(productId);
         cacheService.evictAllLists();
         log.info("product cache evicted after write: productId={}", productId);
+    }
+
+    private void markDirty(ProductView view) {
+        markDirty(view.getProductId(), view.getVersion());
+    }
+
+    private void markDirty(String productId, Long version) {
+        cacheService.markDetailDirty(productId, version);
+        cacheService.markListDirty(version);
     }
 
     private String detailShardPrefix(String productId) {

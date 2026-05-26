@@ -3,6 +3,7 @@ package com.lubover.singularity.pipeline.interceptor;
 import com.lubover.singularity.pipeline.ExecutionContext;
 import com.lubover.singularity.pipeline.ExecutionResult;
 import com.lubover.singularity.pipeline.PipelineInterceptor;
+import com.lubover.singularity.pipeline.read.CacheConsistencyPolicy;
 import com.lubover.singularity.pipeline.read.CacheLookup;
 import com.lubover.singularity.pipeline.read.CacheLookupState;
 import com.lubover.singularity.pipeline.read.CacheNullHitHandler;
@@ -17,6 +18,7 @@ public class CacheStampedeGuardInterceptor<T> implements PipelineInterceptor<T> 
     private final ReadLockManager lockManager;
     private final ReadCache<T> cache;
     private final CacheNullHitHandler<T> nullHitHandler;
+    private final CacheConsistencyPolicy<T> consistencyPolicy;
     private final int maxWaitAttempts;
     private final long waitMillis;
 
@@ -26,6 +28,16 @@ public class CacheStampedeGuardInterceptor<T> implements PipelineInterceptor<T> 
             CacheNullHitHandler<T> nullHitHandler,
             int maxWaitAttempts,
             long waitMillis) {
+        this(lockManager, cache, nullHitHandler, maxWaitAttempts, waitMillis, CacheConsistencyPolicy.noop());
+    }
+
+    public CacheStampedeGuardInterceptor(
+            ReadLockManager lockManager,
+            ReadCache<T> cache,
+            CacheNullHitHandler<T> nullHitHandler,
+            int maxWaitAttempts,
+            long waitMillis,
+            CacheConsistencyPolicy<T> consistencyPolicy) {
         if (maxWaitAttempts < 0) {
             throw new IllegalArgumentException("maxWaitAttempts must not be negative");
         }
@@ -35,6 +47,9 @@ public class CacheStampedeGuardInterceptor<T> implements PipelineInterceptor<T> 
         this.lockManager = lockManager;
         this.cache = cache;
         this.nullHitHandler = nullHitHandler;
+        this.consistencyPolicy = consistencyPolicy == null
+                ? CacheConsistencyPolicy.noop()
+                : consistencyPolicy;
         this.maxWaitAttempts = maxWaitAttempts;
         this.waitMillis = waitMillis;
     }
@@ -54,16 +69,25 @@ public class CacheStampedeGuardInterceptor<T> implements PipelineInterceptor<T> 
 
         for (int attempt = 1; attempt <= maxWaitAttempts; attempt++) {
             context.putMeta(ReadMeta.LOCK_WAIT_COUNT, attempt);
+            consistencyPolicy.beforeCacheRead(context);
             CacheLookup<T> lookup = cache.get(context);
+            lookup.getMeta().forEach(context::putMeta);
+            if (lookup.getState() != CacheLookupState.MISS && !consistencyPolicy.shouldUseCache(context, lookup)) {
+                context.putMeta(ReadMeta.CACHE_CONSISTENCY, ReadMeta.CACHE_CONSISTENCY_REJECTED);
+                sleep();
+                continue;
+            }
             if (lookup.getState() == CacheLookupState.HIT_VALUE) {
                 context.putMeta(ReadMeta.SOURCE, ReadMeta.SOURCE_CACHE);
                 context.putMeta(ReadMeta.CACHE_STATE, lookup.getState().name());
+                context.putMeta(ReadMeta.CACHE_CONSISTENCY, ReadMeta.CACHE_CONSISTENCY_ACCEPTED);
                 context.setResult(ExecutionResult.success(lookup.getValue()));
                 return;
             }
             if (lookup.getState() == CacheLookupState.HIT_NULL) {
                 context.putMeta(ReadMeta.SOURCE, ReadMeta.SOURCE_CACHE);
                 context.putMeta(ReadMeta.CACHE_STATE, lookup.getState().name());
+                context.putMeta(ReadMeta.CACHE_CONSISTENCY, ReadMeta.CACHE_CONSISTENCY_ACCEPTED);
                 nullHitHandler.handle(context);
                 return;
             }

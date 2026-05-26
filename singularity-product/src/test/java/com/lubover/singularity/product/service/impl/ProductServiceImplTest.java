@@ -37,6 +37,7 @@ class ProductServiceImplTest {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductCacheService cacheService = mock(ProductCacheService.class);
         ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        prepareCacheDefaults(cacheService);
         ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
 
         ProductView cachedView = buildView("p-1");
@@ -56,6 +57,7 @@ class ProductServiceImplTest {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductCacheService cacheService = mock(ProductCacheService.class);
         ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        prepareCacheDefaults(cacheService);
         ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
 
         Product product = new Product();
@@ -87,6 +89,7 @@ class ProductServiceImplTest {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductCacheService cacheService = mock(ProductCacheService.class);
         ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        prepareCacheDefaults(cacheService);
         ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
 
         PageResponse<ProductView> cachedPage = PageResponse.of(List.of(buildView("p-1")), 1, 1, 10);
@@ -107,6 +110,7 @@ class ProductServiceImplTest {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductCacheService cacheService = mock(ProductCacheService.class);
         ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        prepareCacheDefaults(cacheService);
         ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
 
         Product product = new Product();
@@ -137,6 +141,7 @@ class ProductServiceImplTest {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductCacheService cacheService = mock(ProductCacheService.class);
         ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        prepareCacheDefaults(cacheService);
         ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
 
         when(cacheService.getDetail(anyString(), eq("p-degrade"))).thenThrow(new RuntimeException("redis down"));
@@ -154,6 +159,7 @@ class ProductServiceImplTest {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductCacheService cacheService = mock(ProductCacheService.class);
         ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        prepareCacheDefaults(cacheService);
         ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
 
         when(cacheService.getList(anyString(), anyString())).thenThrow(new RuntimeException("redis down"));
@@ -172,6 +178,7 @@ class ProductServiceImplTest {
         ProductMapper productMapper = mock(ProductMapper.class);
         ProductCacheService cacheService = mock(ProductCacheService.class);
         ProductEventPublisher eventPublisher = mock(ProductEventPublisher.class);
+        prepareCacheDefaults(cacheService);
         ProductServiceImpl service = new ProductServiceImpl(productMapper, cacheService, eventPublisher);
 
         Product existing = buildProduct("p-4");
@@ -198,7 +205,13 @@ class ProductServiceImplTest {
         view.setName("name");
         view.setCategory("cat");
         view.setPrice(BigDecimal.TEN);
+        view.setVersion(1L);
         return view;
+    }
+
+    private void prepareCacheDefaults(ProductCacheService cacheService) {
+        when(cacheService.detailDirtyVersion(anyString())).thenReturn(null);
+        when(cacheService.listDirtyVersion()).thenReturn(null);
     }
 
     private Product buildProduct(String productId) {
@@ -207,6 +220,7 @@ class ProductServiceImplTest {
         product.setName("name");
         product.setCategory("cat");
         product.setPrice(BigDecimal.TEN);
+        product.setVersion(1L);
         return product;
     }
 }

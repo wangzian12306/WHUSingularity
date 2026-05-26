@@ -4,10 +4,13 @@ import com.lubover.singularity.pipeline.ExecutionContext;
 import com.lubover.singularity.pipeline.Operation;
 import com.lubover.singularity.pipeline.read.CacheLookup;
 import com.lubover.singularity.pipeline.read.ReadCache;
+import com.lubover.singularity.pipeline.read.ReadMeta;
 import com.lubover.singularity.product.cache.ProductCacheService;
 import com.lubover.singularity.product.cache.ProductCacheService.CacheState;
 import com.lubover.singularity.product.cache.ProductCacheService.DetailCacheResult;
 import com.lubover.singularity.product.dto.ProductView;
+
+import java.util.Map;
 
 public class ProductDetailReadCache implements ReadCache<ProductView> {
 
@@ -33,10 +36,10 @@ public class ProductDetailReadCache implements ReadCache<ProductView> {
 
     private CacheLookup<ProductView> toLookup(DetailCacheResult result) {
         if (result.getState() == CacheState.HIT_VALUE) {
-            return CacheLookup.value(result.getValue());
+            return CacheLookup.value(result.getValue()).withMeta(versionMeta(result.getVersion()));
         }
         if (result.getState() == CacheState.HIT_NULL) {
-            return CacheLookup.nullHit();
+            return CacheLookup.<ProductView>nullHit().withMeta(versionMeta(result.getVersion()));
         }
         return CacheLookup.miss();
     }
@@ -56,5 +59,9 @@ public class ProductDetailReadCache implements ReadCache<ProductView> {
 
     private String productId(Operation operation) {
         return String.valueOf(operation.getMetadata().get(ProductReadOperations.META_PRODUCT_ID));
+    }
+
+    private Map<String, Object> versionMeta(Long version) {
+        return version == null ? Map.of() : Map.of(ReadMeta.CACHE_VERSION, version);
     }
 }

@@ -6,6 +6,7 @@ import com.lubover.singularity.pipeline.interceptor.ReadDegradeInterceptor;
 import com.lubover.singularity.pipeline.interceptor.ReadRateLimitInterceptor;
 import com.lubover.singularity.pipeline.interceptor.ReadRoutingInterceptor;
 import com.lubover.singularity.pipeline.interceptor.ReadThroughCacheInterceptor;
+import com.lubover.singularity.pipeline.read.CacheConsistencyPolicy;
 import com.lubover.singularity.pipeline.read.CacheLookup;
 import com.lubover.singularity.pipeline.read.HashReadShardPolicy;
 import com.lubover.singularity.pipeline.read.ReadCache;
@@ -87,6 +88,71 @@ class ReadPipelineInterceptorsTest {
 
         assertTrue(result.isSuccess());
         assertEquals(Boolean.TRUE, result.getMeta().get("contextAwarePut"));
+    }
+
+    @Test
+    void readThroughCache_shouldRejectStaleCacheByConsistencyPolicy() {
+        AtomicInteger handlerCalls = new AtomicInteger();
+        ReadCache<String> cache = new StubReadCache(
+                CacheLookup.value("stale").withMeta(Map.of(ReadMeta.CACHE_VERSION, 1L)));
+        CacheConsistencyPolicy<String> policy = new CacheConsistencyPolicy<>() {
+            @Override
+            public void beforeCacheRead(ExecutionContext<String> context) {
+                context.putMeta(ReadMeta.DIRTY_VERSION, 2L);
+            }
+
+            @Override
+            public boolean shouldUseCache(ExecutionContext<String> context, CacheLookup<String> lookup) {
+                return (Long) lookup.getMeta().get(ReadMeta.CACHE_VERSION)
+                        >= (Long) context.getMeta().get(ReadMeta.DIRTY_VERSION);
+            }
+        };
+
+        ExecutionResult<String> result = executor.execute(
+                DefaultOperation.read("product:detail:p-1"),
+                List.of(new ReadThroughCacheInterceptor<>(cache, context ->
+                        context.setResult(ExecutionResult.failure("NOT_FOUND", "not found")), policy)),
+                context -> {
+                    handlerCalls.incrementAndGet();
+                    context.setResult(ExecutionResult.success("fresh"));
+                });
+
+        assertTrue(result.isSuccess());
+        assertEquals("fresh", result.getData());
+        assertEquals(1, handlerCalls.get());
+        assertEquals(ReadMeta.CACHE_CONSISTENCY_REJECTED, result.getMeta().get(ReadMeta.CACHE_CONSISTENCY));
+    }
+
+    @Test
+    void readThroughCache_shouldSkipStaleWriteByConsistencyPolicy() {
+        AtomicInteger putCalls = new AtomicInteger();
+        ReadCache<String> cache = new ReadCache<>() {
+            @Override
+            public CacheLookup<String> get(Operation operation) {
+                return CacheLookup.miss();
+            }
+
+            @Override
+            public void put(Operation operation, String value) {
+                putCalls.incrementAndGet();
+            }
+        };
+        CacheConsistencyPolicy<String> policy = new CacheConsistencyPolicy<>() {
+            @Override
+            public boolean shouldWriteCache(ExecutionContext<String> context, String value) {
+                return false;
+            }
+        };
+
+        ExecutionResult<String> result = executor.execute(
+                DefaultOperation.read("product:detail:p-1"),
+                List.of(new ReadThroughCacheInterceptor<>(cache, context ->
+                        context.setResult(ExecutionResult.failure("NOT_FOUND", "not found")), policy)),
+                context -> context.setResult(ExecutionResult.success("old-db-value")));
+
+        assertTrue(result.isSuccess());
+        assertEquals(0, putCalls.get());
+        assertEquals(Boolean.TRUE, result.getMeta().get(ReadMeta.CACHE_WRITE_SKIPPED));
     }
 
     @Test
