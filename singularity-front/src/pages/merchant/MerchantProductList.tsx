@@ -111,9 +111,9 @@ export default function MerchantProductList() {
     }
   }
 
-  const statusTag = (status: number) => {
+  const getStatusTag = (status: number) => {
     if (status === 1) return <Tag color="green">上架中</Tag>
-    if (status === 0) return <Tag color="default">已下架</Tag>
+    if (status === 0) return <Tag color="default">下架</Tag>
     return <Tag color="red">禁用</Tag>
   }
 
@@ -135,7 +135,7 @@ export default function MerchantProductList() {
         return qty > 0 ? <Tag color="green">{qty}</Tag> : <Tag color="red">0</Tag>
       },
     },
-    { title: '状态', dataIndex: 'merchantStatus', key: 'merchantStatus', render: statusTag },
+    { title: '状态', dataIndex: 'merchantStatus', key: 'merchantStatus', render: getStatusTag },
     {
       title: '操作',
       key: 'action',
@@ -187,18 +187,21 @@ export default function MerchantProductList() {
         width={600}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          {!editingProduct && (
-            <Form.Item name="productId" label="商品 ID">
-              <Input placeholder="不填则由后端生成" />
-            </Form.Item>
-          )}
-          <Form.Item name="name" label="商品名称" rules={[{ required: true, message: '请输入商品名称' }]}>
+          <Form.Item
+            name="name"
+            label="商品名称"
+            rules={[{ required: true, message: '请输入商品名称' }]}
+          >
             <Input placeholder="商品名称" />
           </Form.Item>
           <Form.Item name="subtitle" label="副标题">
             <Input placeholder="副标题" />
           </Form.Item>
-          <Form.Item name="price" label="价格" rules={[{ required: true, message: '请输入价格' }]}>
+          <Form.Item
+            name="price"
+            label="价格"
+            rules={[{ required: true, message: '请输入价格' }]}
+          >
             <InputNumber min={0} style={{ width: '100%' }} placeholder="价格" />
           </Form.Item>
           <Form.Item name="category" label="分类">
@@ -215,7 +218,10 @@ export default function MerchantProductList() {
           <Form.Item name="tags" label="标签">
             <Input placeholder="标签，逗号分隔" />
           </Form.Item>
-          <Form.Item name="totalQuantity" label={editingProduct ? '库存数量（修改将覆盖原有库存）' : '库存数量'}>
+          <Form.Item
+            name="totalQuantity"
+            label={editingProduct ? '库存数量（修改将覆盖原有库存）' : '库存数量'}
+          >
             <InputNumber min={0} style={{ width: '100%' }} placeholder="库存数量" />
           </Form.Item>
           <Form.Item>
