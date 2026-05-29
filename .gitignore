@@ -57,3 +57,4 @@ deploy/run-k6-order-lb-load.cmd
 deploy/run-k6-order-load-with-targets.ps1
 deploy/run-k6-order-load-with-targets.cmd
 /summary.json
+docs/submit
