@@ -40,6 +40,8 @@ scaler:
   docker-cpu-surge-low-baseline: 0.18
   docker-cpu-surge-high-water: 0.52
   docker-cpu-surge-max-poll-gap-seconds: 50
+  # 自动缩容：docker 聚合 CPU（0~1）仍 >= 该值时不删副本；0=关闭。宜低于 cpu-scale-up-threshold(0.70)
+  docker-cpu-scale-down-block-threshold: 0.35
   compose-project: ${SCALER_COMPOSE_PROJECT:singularity}
   compose-file: ${SCALER_COMPOSE_FILE:/workspace/deploy/docker-compose.backend.yml}
   services:
@@ -49,11 +51,12 @@ scaler:
       base-port: 8081
       port-step: 2
       min-instances: 1
-      max-instances: 5
+      max-instances: 50
       cpu-scale-up-threshold: 0.70
       memory-scale-up-threshold: 0.80
       cpu-scale-down-threshold: 0.20
       memory-scale-down-threshold: 0.30
+      docker-cpu-scale-down-block-threshold: 0.35
       scale-down-consecutive-periods: 3
       image: maven:3.9.9-eclipse-temurin-21
       env:
@@ -73,7 +76,7 @@ scaler:
       base-port: 8090
       port-step: 1
       min-instances: 1
-      max-instances: 5
+      max-instances: 114514
       cpu-scale-up-threshold: 0.70
       memory-scale-up-threshold: 0.80
       cpu-scale-down-threshold: 0.20
@@ -94,7 +97,7 @@ scaler:
       base-port: 8082
       port-step: 2
       min-instances: 1
-      max-instances: 5
+      max-instances: 114514
       cpu-scale-up-threshold: 0.70
       memory-scale-up-threshold: 0.80
       cpu-scale-down-threshold: 0.20
@@ -116,7 +119,7 @@ scaler:
       base-port: 8087
       port-step: 1
       min-instances: 1
-      max-instances: 5
+      max-instances: 114514
       cpu-scale-up-threshold: 0.70
       memory-scale-up-threshold: 0.80
       cpu-scale-down-threshold: 0.20

@@ -25,6 +25,7 @@ export default function AppLayout() {
     { key: 'users', label: '用户管理', onClick: () => navigate('/admin/users') },
     { key: 'stock', label: '库存管理', onClick: () => navigate('/admin/stock') },
     { key: 'orders', label: '订单管理', onClick: () => navigate('/admin/orders') },
+    { key: 'monitor', label: '系统监控', onClick: () => navigate('/admin/monitor') },
   ]
 
   const merchantItems = [

@@ -3,22 +3,27 @@ package com.lubover.singularity.order.service;
 import com.lubover.singularity.api.Actor;
 import com.lubover.singularity.api.Result;
 
+import java.util.concurrent.CompletableFuture;
+
 public interface OrderService {
 
     /**
-     * snagOrder 为一个 actor 抢占一个 slot 中的资源（下单）
-     * @param actor 发起抢占的用户
-     * @return 抢占结果
+     * Allocate one available slot for an actor and create an order.
+     * 异步执行：主线程立即返回 CompletableFuture，三步 I/O 在 worker 线程顺序执行。
+     *
+     * @param actor requester
+     * @return future allocation result
      */
-    Result snagOrder(Actor actor);
+    CompletableFuture<Result> snagOrder(Actor actor);
 
-    Result snagOrderByProduct(Actor actor, String productId);
+    CompletableFuture<Result> snagOrderByProduct(Actor actor, String productId);
 
     /**
-     * payOrder 对一笔已创建的订单发起支付，扣除用户余额并将订单状态更新为 PAID
-     * @param orderId 订单ID
-     * @param userId  发起支付的用户ID
-     * @return 支付结果
+     * Pay an existing created order.
+     *
+     * @param orderId order id
+     * @param userId requester user id
+     * @return payment result
      */
     Result payOrder(String orderId, String userId);
 }

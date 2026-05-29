@@ -28,3 +28,13 @@ management:
     export:
       prometheus:
         enabled: true
+
+rocketmq:
+  producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:product-producer-group}
+    product:
+      topic: ${ROCKETMQ_PRODUCER_PRODUCT_TOPIC:product-cache-topic}
+  consumer:
+    product:
+      topic: ${ROCKETMQ_CONSUMER_PRODUCT_TOPIC:product-cache-topic}
+      group: ${ROCKETMQ_CONSUMER_PRODUCT_GROUP:product-cache-consumer-group}

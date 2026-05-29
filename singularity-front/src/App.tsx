@@ -8,10 +8,12 @@ import AppLayout from './components/AppLayout'
 import LoginPage from './pages/Login'
 import RegisterPage from './pages/Register'
 import Home from './pages/Home'
+import ProductDetail from './pages/ProductDetail'
 import UserCenter from './pages/UserCenter'
 import AdminUserList from './pages/admin/AdminUserList'
 import AdminStockList from './pages/admin/AdminStockList'
 import AdminOrderList from './pages/admin/AdminOrderList'
+import AdminMonitorPanel from './pages/admin/AdminMonitorPanel'
 import WebMCPDemo from './pages/WebMCPDemo'
 import MerchantProductList from './pages/merchant/MerchantProductList'
 import MerchantCenter from './pages/merchant/MerchantCenter'
@@ -37,10 +39,12 @@ export default function App() {
               <Route path="/register" element={<RegisterPage />} />
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/" element={<Home />} />
+                <Route path="/products/:productId" element={<ProductDetail />} />
                 <Route path="/user" element={<UserCenter />} />
                 <Route path="/admin/users" element={<AdminRoute><AdminUserList /></AdminRoute>} />
                 <Route path="/admin/stock" element={<AdminRoute><AdminStockList /></AdminRoute>} />
                 <Route path="/admin/orders" element={<AdminRoute><AdminOrderList /></AdminRoute>} />
+                <Route path="/admin/monitor" element={<AdminRoute><AdminMonitorPanel /></AdminRoute>} />
                 <Route path="/webmcp-demo" element={<WebMCPDemo />} />
                 <Route path="/merchant/products" element={<MerchantProductList />} />
                 <Route path="/merchant/center" element={<MerchantCenter />} />

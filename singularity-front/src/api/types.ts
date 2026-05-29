@@ -193,6 +193,27 @@ export interface ProductView {
   availableQuantity: number | null
 }
 
+export interface ProductStockView {
+  productId: string
+  availableQuantity: number
+  reservedQuantity: number
+  totalQuantity: number
+  version: number
+  updateTime: string
+}
+
+export interface ProductDetailResponse {
+  product: ProductView
+  stock: ProductStockView | null
+}
+
+export interface ProductListParams {
+  category?: string
+  keyword?: string
+  pageNo?: number
+  pageSize?: number
+}
+
 export interface CreateProductRequest {
   productId?: string
   name: string
@@ -226,4 +247,58 @@ export interface PageResponse<T> {
   pageNo?: number
   size?: number
   pageSize?: number
+}
+
+// Product Inventory
+export interface ProductInventory {
+  id: number
+  productId: number
+  availableQuantity: number
+  lockedQuantity: number
+  totalQuantity: number
+  version: number
+  createTime: string
+  updateTime: string
+}
+
+export interface InventoryChangeLog {
+  id: number
+  productId: number
+  merchantId: number
+  changeQuantity: number
+  changeType: number
+  beforeQuantity: number
+  afterQuantity: number
+  remark: string | null
+  createTime: string
+}
+
+export interface AdjustInventoryRequest {
+  quantity: number
+  remark?: string
+}
+
+// Scaler monitor
+export interface ServiceState {
+  serviceName: string
+  instanceCount: number
+  currentQps: number
+  avgCpuUsage: number
+  avgMemoryUsage: number
+  cooldownActive: boolean
+  lastAction: string | null
+  lastActionTime: number
+}
+
+export interface ScalerPanelSnapshot {
+  generatedAt: number
+  intervalSeconds: number
+  cooldownSeconds: number
+  totalServices: number
+  totalInstances: number
+  totalQps: number
+  avgCpuUsage: number
+  avgMemoryUsage: number
+  cooldownServices: number
+  services: ServiceState[]
 }

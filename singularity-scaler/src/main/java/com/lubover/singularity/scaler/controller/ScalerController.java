@@ -26,6 +26,11 @@ public class ScalerController {
         return ResponseEntity.ok(scalingService.getAllServiceStates());
     }
 
+    @GetMapping("/panel")
+    public ResponseEntity<Map<String, Object>> panel() {
+        return ResponseEntity.ok(scalingService.getPanelSnapshot());
+    }
+
     @PostMapping("/scale")
     public ResponseEntity<ScaleResult> scale(@RequestBody ScaleRequest request) {
         ScaleResult result = scalingService.manualScale(request.getService(), request.getAction());
