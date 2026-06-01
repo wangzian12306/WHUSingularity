@@ -30,9 +30,9 @@
 | `nginx/order-lb.conf` | 修改 | Order LB upstream 等 |
 | `nginx/nginx-order-lb-main.conf` | **新增** | 独立 nginx 主配置（多 LB 场景） |
 | `rebuild-stack.ps1` | 修改 | 重建/扩缩相关脚本参数 |
-| `refill-stock-buckets.ps1` / `.sh` | **新增** | Redis `stock:bucket-*` 灌桶 |
+| `refill-stock-buckets.ps1` / `.sh` | **移至** `tests/order-stress-test/` | Redis `stock:bucket-*` 灌桶 |
 | `mysql/patch-stock-bucket-products.sql` | **新增** | MySQL 侧商品/库存补丁（若使用） |
-| `run-k6-order-load-business.cmd` / `.ps1` | **新增** | 运行「带业务成功率」的 k6：`k6-order-load-business` |
+| `run-k6-order-load-business.cmd` / `.ps1` | **移至** `tests/order-stress-test/` | 运行「带业务成功率」的 k6：`k6-order-load-business` |
 
 ### 2.3 `singularity-stock`
 

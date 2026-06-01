@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 用法：在仓库根或 deploy 下执行 ./refill-stock-buckets.sh
+# 用法：./tests/order-stress-test/refill-stock-buckets.sh
 # 依赖：docker（mysql 容器 singularity-mysql）、curl、网关 8080 可访问
 set -euo pipefail
 QTY="${1:-99999999}"

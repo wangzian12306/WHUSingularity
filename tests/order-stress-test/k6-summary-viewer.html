@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>k6 汇总 JSON 可视化</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --fail: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 1.75rem 1.25rem 2.5rem;
+    }
+    .page-header { margin-bottom: 1.25rem; }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      line-height: 1.3;
+    }
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      max-width: 52rem;
+    }
+    .sub code {
+      display: inline-block;
+      max-width: 100%;
+      padding: 0.12em 0.4em;
+      border-radius: 4px;
+      background: var(--surface2);
+      color: #c5d4e8;
+      font-size: 0.88em;
+      word-break: break-all;
+    }
+    .upload-panel { margin-bottom: 1rem; }
+    .drop {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      width: 100%;
+      min-height: 148px;
+      padding: 1.75rem 1.25rem;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .drop:hover,
+    .drop.dragover {
+      border-color: var(--accent);
+      background: var(--surface2);
+    }
+    .drop input {
+      position: absolute;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .drop-icon {
+      font-size: 1.75rem;
+      line-height: 1;
+      opacity: 0.85;
+      margin-bottom: 0.15rem;
+    }
+    .drop-title {
+      display: block;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .drop-hint {
+      display: block;
+      margin: 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    #dashboard { display: none; margin-top: 1.5rem; }
+    #dashboard.visible { display: block; }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+    .kpi label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    .kpi .val { font-size: 1.35rem; font-weight: 600; margin-top: 0.2rem; }
+    .kpi .unit { font-size: 0.8rem; color: var(--muted); font-weight: 400; }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .card h2 { font-size: 0.95rem; margin: 0 0 0.75rem; font-weight: 600; }
+    .chart-box { position: relative; height: 260px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 0.45rem 0.6rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.ok { background: rgba(34, 197, 94, 0.2); color: var(--ok); }
+    .badge.fail { background: rgba(239, 68, 68, 0.2); color: var(--fail); }
+    .err {
+      display: none;
+      margin: 0 0 1rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      background: rgba(239, 68, 68, 0.12);
+      color: #fca5a5;
+      font-size: 0.9rem;
+    }
+    .meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem; }
+    .kpi .val .unit { display: inline; margin-left: 0.15rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="page-header">
+      <h1>k6 汇总可视化</h1>
+      <p class="sub">
+        导入 <code>handleSummary</code> 导出的 JSON（例如
+        <code>k6-out/summary-docker-order-one.json</code>），在浏览器本地解析，不上传服务器。
+      </p>
+    </header>
+
+    <section class="upload-panel">
+      <label class="drop" id="dropZone" for="fileInput">
+        <input type="file" id="fileInput" accept=".json,application/json" />
+        <span class="drop-icon" aria-hidden="true">📄</span>
+        <span class="drop-title">点击或拖拽 JSON 文件到此处</span>
+        <span class="drop-hint">支持 k6 end-of-test summary JSON</span>
+      </label>
+    </section>
+    <p class="err" id="errorBox" role="alert"></p>
+
+    <div id="dashboard">
+      <p class="meta" id="metaLine"></p>
+      <div class="kpis" id="kpiRow"></div>
+      <div class="grid2">
+        <div class="card">
+          <h2>HTTP 延迟 (ms)</h2>
+          <div class="chart-box"><canvas id="latencyChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>迭代耗时 (ms)</h2>
+          <div class="chart-box"><canvas id="iterChart"></canvas></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h2>吞吐与丢弃</h2>
+          <div class="chart-box"><canvas id="throughputChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h2>检查项 (checks)</h2>
+          <div id="checksTable"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top: 1rem;">
+        <h2>阈值 (thresholds)</h2>
+        <div id="thresholdsTable"></div>
+      </div>
+      <div class="card" style="margin-top: 1rem;">
+        <h2>全部指标</h2>
+        <div style="overflow-x: auto;">
+          <table id="allMetrics"><thead><tr><th>指标</th><th>类型</th><th>主要数值</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const charts = {};
+    const $ = (id) => document.getElementById(id);
+
+    function showError(msg) {
+      const el = $('errorBox');
+      el.textContent = msg;
+      el.style.display = msg ? 'block' : 'none';
+    }
+
+    function fmtNum(n, digits = 2) {
+      if (n == null || Number.isNaN(n)) return '—';
+      if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+      if (Math.abs(n) >= 1e4) return (n / 1e3).toFixed(1) + 'k';
+      return Number(n).toLocaleString('zh-CN', { maximumFractionDigits: digits });
+    }
+
+    function fmtMs(ms) {
+      if (ms == null) return '—';
+      if (ms < 1) return (ms * 1000).toFixed(0) + ' µs';
+      if (ms < 1000) return fmtNum(ms, 2) + ' ms';
+      return fmtNum(ms / 1000, 2) + ' s';
+    }
+
+    function fmtDuration(ms) {
+      if (!ms) return '—';
+      const s = ms / 1000;
+      if (s < 60) return s.toFixed(1) + ' s';
+      const m = Math.floor(s / 60);
+      const r = (s % 60).toFixed(1);
+      return m + 'm ' + r + 's';
+    }
+
+    function metric(data, name) {
+      return data?.metrics?.[name]?.values ?? null;
+    }
+
+    function destroyCharts() {
+      Object.values(charts).forEach((c) => c?.destroy());
+      Object.keys(charts).forEach((k) => delete charts[k]);
+    }
+
+    function kpiCard(label, value, unit = '') {
+      return `<div class="kpi"><label>${label}</label><div class="val">${value}<span class="unit"> ${unit}</span></div></div>`;
+    }
+
+    function trendBarChart(canvasId, title, values) {
+      const labels = ['min', 'med', 'avg', 'p(90)', 'p(95)', 'p(99)', 'max'];
+      const keys = ['min', 'med', 'avg', 'p(90)', 'p(95)', 'p(99)', 'max'];
+      const data = keys.map((k) => (values[k] != null ? Math.max(0, values[k]) : null));
+      const ctx = $(canvasId).getContext('2d');
+      charts[canvasId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: title,
+            data,
+            backgroundColor: 'rgba(59, 130, 246, 0.65)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 1,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#8b9cb3' },
+              grid: { color: '#2d3a4f' },
+            },
+            x: { ticks: { color: '#8b9cb3' }, grid: { display: false } },
+          },
+        },
+      });
+    }
+
+    function render(data, fileName) {
+      destroyCharts();
+      showError('');
+      const durationMs = data?.state?.testRunDurationMs ?? 0;
+      const httpReqs = metric(data, 'http_reqs');
+      const iterations = metric(data, 'iterations');
+      const dropped = metric(data, 'dropped_iterations');
+      const checks = metric(data, 'checks');
+      const httpFailed = metric(data, 'http_req_failed');
+      const vus = metric(data, 'vus');
+      const vusMax = metric(data, 'vus_max');
+      const httpDur = metric(data, 'http_req_duration');
+      const iterDur = metric(data, 'iteration_duration');
+
+      const actualRps = httpReqs?.rate ?? iterations?.rate ?? 0;
+      const totalIter = iterations?.count ?? httpReqs?.count ?? 0;
+      const droppedCount = dropped?.count ?? 0;
+      const planned = totalIter + droppedCount;
+      const dropPct = planned > 0 ? ((droppedCount / planned) * 100).toFixed(2) : '0';
+      const checkRate = checks?.rate != null ? (checks.rate * 100).toFixed(2) : '—';
+      const failRate = httpFailed?.rate != null ? (httpFailed.rate * 100).toFixed(3) : '0';
+
+      $('metaLine').textContent = `文件: ${fileName || '—'} · 时长: ${fmtDuration(durationMs)}`;
+
+      $('kpiRow').innerHTML = [
+        kpiCard('HTTP QPS', fmtNum(actualRps, 0), '/s'),
+        kpiCard('总请求', fmtNum(totalIter, 0), '次'),
+        kpiCard('丢弃迭代', fmtNum(droppedCount, 0), `(${dropPct}%)`),
+        kpiCard('检查通过率', checkRate, '%'),
+        kpiCard('HTTP 失败率', failRate, '%'),
+        kpiCard('HTTP p95', fmtMs(httpDur?.['p(95)']), ''),
+        kpiCard('HTTP p99', fmtMs(httpDur?.['p(99)']), ''),
+        kpiCard('VU 峰值', fmtNum(vus?.max ?? vusMax?.max, 0), ''),
+      ].join('');
+
+      if (httpDur) trendBarChart('latencyChart', 'http_req_duration', httpDur);
+      if (iterDur) trendBarChart('iterChart', 'iteration_duration', iterDur);
+
+      const ctxT = $('throughputChart').getContext('2d');
+      charts.throughputChart = new Chart(ctxT, {
+        type: 'doughnut',
+        data: {
+          labels: ['成功迭代', '丢弃迭代'],
+          datasets: [{
+            data: [totalIter, droppedCount],
+            backgroundColor: ['rgba(34, 197, 94, 0.75)', 'rgba(245, 158, 11, 0.75)'],
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#8b9cb3' } },
+          },
+        },
+      });
+
+      const rootChecks = data?.root_group?.checks ?? [];
+      if (rootChecks.length) {
+        $('checksTable').innerHTML = `
+          <table>
+            <thead><tr><th>检查</th><th>通过</th><th>失败</th><th>通过率</th></tr></thead>
+            <tbody>${rootChecks.map((c) => {
+              const total = (c.passes || 0) + (c.fails || 0);
+              const rate = total ? ((c.passes / total) * 100).toFixed(2) : '—';
+              return `<tr><td>${c.name}</td><td>${fmtNum(c.passes, 0)}</td><td>${fmtNum(c.fails, 0)}</td><td>${rate}%</td></tr>`;
+            }).join('')}</tbody>
+          </table>`;
+      } else {
+        $('checksTable').innerHTML = '<p style="color:var(--muted)">无 root_group.checks</p>';
+      }
+
+      const thresholdRows = [];
+      for (const [mName, m] of Object.entries(data.metrics || {})) {
+        if (!m.thresholds) continue;
+        for (const [expr, th] of Object.entries(m.thresholds)) {
+          thresholdRows.push(
+            `<tr><td>${mName}</td><td><code>${expr}</code></td><td><span class="badge ${th.ok ? 'ok' : 'fail'}">${th.ok ? 'OK' : 'FAIL'}</span></td></tr>`
+          );
+        }
+      }
+      $('thresholdsTable').innerHTML = thresholdRows.length
+        ? `<table><thead><tr><th>指标</th><th>条件</th><th>结果</th></tr></thead><tbody>${thresholdRows.join('')}</tbody></table>`
+        : '<p style="color:var(--muted)">未配置或未触发阈值</p>';
+
+      const tbody = $('allMetrics').querySelector('tbody');
+      tbody.innerHTML = '';
+      for (const [name, m] of Object.entries(data.metrics || {}).sort(([a], [b]) => a.localeCompare(b))) {
+        const v = m.values || {};
+        let summary = '';
+        if (m.type === 'counter' && v.rate != null) summary = `count=${fmtNum(v.count, 0)}, rate=${fmtNum(v.rate, 0)}/s`;
+        else if (m.type === 'rate' && v.rate != null) summary = `rate=${(v.rate * 100).toFixed(2)}%`;
+        else if (m.type === 'gauge') summary = `value=${v.value}, max=${v.max}`;
+        else if (m.contains === 'time') summary = `med=${fmtMs(v.med)}, p95=${fmtMs(v['p(95)'])}, max=${fmtMs(v.max)}`;
+        else summary = JSON.stringify(v).slice(0, 80);
+        tbody.innerHTML += `<tr><td>${name}</td><td>${m.type}</td><td>${summary}</td></tr>`;
+      }
+
+      $('dashboard').classList.add('visible');
+    }
+
+    function parseFile(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!data.metrics) throw new Error('不是 k6 summary JSON：缺少 metrics 字段');
+          render(data, file.name);
+        } catch (e) {
+          showError('解析失败: ' + e.message);
+          $('dashboard').classList.remove('visible');
+        }
+      };
+      reader.onerror = () => showError('读取文件失败');
+      reader.readAsText(file);
+    }
+
+    $('fileInput').addEventListener('change', (e) => {
+      const f = e.target.files?.[0];
+      if (f) parseFile(f);
+    });
+
+    const drop = $('dropZone');
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('dragover'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('dragover');
+      const f = e.dataTransfer.files?.[0];
+      if (f) parseFile(f);
+    });
+
+    const params = new URLSearchParams(location.search);
+    if (params.get('demo') === '1') {
+      fetch('k6-out/summary-docker-order-one.json')
+        .then((r) => r.json())
+        .then((d) => render(d, 'summary-docker-order-one.json'))
+        .catch(() => {});
+    }
+  </script>
+</body>
+</html>

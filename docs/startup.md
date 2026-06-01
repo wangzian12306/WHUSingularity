@@ -123,7 +123,7 @@ curl -X POST http://localhost:8080/api/stock/slots/preheat \
   -d '{"slotId":"bucket-2","redisKey":"stock:bucket-2","quantity":99999999,"overwrite":true}'
 ```
 
-> 一键同步 MySQL `singularity_stock` 与 Redis：PowerShell `.\deploy\refill-stock-buckets.ps1` 或 Bash `deploy/refill-stock-buckets.sh`。
+> 一键同步 MySQL `singularity_stock` 与 Redis：PowerShell `tests/order-stress-test/refill-stock-buckets.ps1` 或 Bash `tests/order-stress-test/refill-stock-buckets.sh`。
 
 ---
 

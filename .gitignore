@@ -48,12 +48,6 @@ refs/
 .local/
 deploy/jmeter/
 
-### k6 / order stress tests（本地压测脚本与产出，不纳入版本库）###
-tests/order-stress-test/
-deploy/k6-print-order-targets.ps1
-deploy/k6-print-order-targets.sh
-deploy/run-k6-order-lb-load.ps1
-deploy/run-k6-order-lb-load.cmd
-deploy/run-k6-order-load-with-targets.ps1
-deploy/run-k6-order-load-with-targets.cmd
+### k6 / order stress tests（压测产出不入库，脚本与 k6 用例纳入版本库）###
+tests/order-stress-test/k6-out/
 /summary.json
