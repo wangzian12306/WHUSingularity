@@ -1,0 +1,38 @@
+PS D:\chuangxinshijian\WHUSingularity\deploy> .\run-k6-order-load-one.cmd
+time="2026-05-17T15:55:25+08:00" level=warning msg="Found orphan containers ([singularity-influxdb-k6 singularity-grafana-k6 singularity-singularity-order-baseline-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+Container singularity-k6-order-load-one-run-4ca9dff381f3 Creating 
+Container singularity-k6-order-load-one-run-4ca9dff381f3 Created 
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+
+     execution: local
+        script: /scripts/k6-snag-docker-internal-single-lane.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 20000 max VUs, 1m30s max duration (incl. graceful stop):
+              * snag_single: 50000.00 iterations/s for 1m0s (maxVUs: 6600-20000, exec: hit, gracefulStop: 30s)     
+
+     ✓ status 200
+
+     checks.........................: 100.00% ✓ 2918141      ✗ 0
+     data_received..................: 540 MB  9.0 MB/s
+     data_sent......................: 749 MB  13 MB/s
+     dropped_iterations.............: 81855   1361.76913/s
+     http_req_receiving.............: avg=1.93ms   min=3µs     med=13.13µs max=196.79ms p(90)=54.7µs   p(95)=409.83µs p(99)=68.36ms
+     http_req_sending...............: avg=533.42µs min=1.96µs  med=7.35µs  max=237.65ms p(90)=108.08µs p(95)=506.45µs p(99)=13.83ms
+     http_req_tls_handshaking.......: avg=0s       min=0s      med=0s      max=0s       p(90)=0s       p(95)=0s         http_req_receiving.............: avg=1.93ms   min=3µs     med=13.13µs max=196.79ms p(90)=54.7µs   p(95)=409.83µs p(99)=68.36ms
+     http_req_sending...............: avg=533.42µs min=1.96µs  med=7.35µs  max=237.65ms p(90)=108.08µs p(95)=506.45µs p(99)=13.83ms
+     http_req_tls_handshaking.......: avg=0s       min=0s      med=0s      max=0s       p(90)=0s       p(95)=0s       p(99)=0s
+     http_req_waiting...............: avg=14.32ms  min=41.88µs med=4.13ms  max=192.76ms p(90)=41.92ms  p(95)=64.19ms  p(99)=104.44ms
+     http_reqs......................: 2918141 48547.240019/s
+     iteration_duration.............: avg=31.45ms  min=84.93µs med=12.84ms max=473.37ms p(90)=83.42ms  p(95)=118.65ms p(99)=186.32ms
+     iterations.....................: 2918141 48547.240019/s
+     vus............................: 22      min=17         max=6913
+
+running (1m00.1s), 00000/07112 VUs, 2918141 complete and 0 interrupted iterations
+snag_single ✓ [======================================] 00000/07112 VUs  1m0s  50000.00 iters/s
