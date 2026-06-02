@@ -66,6 +66,7 @@ services:
       - "10911:10911"
       - "10909:10909"
 
+  # User：勿设 container_name / 宿主机 ports（scaler 可扩 1~5）。经 Nacos + Gateway :8080/api/user。
   singularity-user:
     image: maven:3.9.9-eclipse-temurin-21
     restart: unless-stopped
@@ -80,8 +81,6 @@ services:
       SPRING_DATA_REDIS_PORT: "6379"
       JWT_SECRET: dev-secret-key
       SERVER_PORT: "8090"
-    ports:
-      - "8090:8090"
     volumes:
       - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
@@ -90,6 +89,7 @@ services:
       - redis
       - nacos
 
+  # Stock：勿设 container_name / 宿主机 ports（scaler 可扩 1~5）。经 Nacos + Gateway /api/stock。
   singularity-stock:
     image: maven:3.9.9-eclipse-temurin-21
     restart: unless-stopped
@@ -105,8 +105,6 @@ services:
       ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
       ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
       SERVER_PORT: "8082"
-    ports:
-      - "8082:8082"
     volumes:
       - ${REPO_ROOT:-..}:/workspace
       - maven_repo:/root/.m2
@@ -116,7 +114,7 @@ services:
       - nacos
       - rmq-broker
 
-  # Order：同一服务名多副本；勿设 container_name。启动脚本见 deploy/order-docker-cmd.sh（缺 jar 时打印诊断）
+  # Order：勿设 container_name / 宿主机 ports（scaler 可扩 1~5）。经 Nacos + Gateway；k6 用容器内 singularity-order:8081 或 order-lb。
   singularity-order:
     image: maven:3.9.9-eclipse-temurin-21
     restart: unless-stopped
@@ -203,6 +201,7 @@ services:
       singularity-order:
         condition: service_started
 
+  # Product：勿设 container_name / 宿主机 ports（scaler 可扩 1~5）。经 Nacos + Gateway /api/product。
   singularity-product:
     image: maven:3.9.9-eclipse-temurin-21
     restart: unless-stopped
@@ -230,8 +229,6 @@ services:
       - redis
       - nacos
       - rmq-broker
-    ports:
-      - "8087:8087"
     healthcheck:
       test:
         [
@@ -296,6 +293,8 @@ services:
     ports:
       - "8080:8080"
 
+  # Scaler 通过 compose scale 管理：singularity-order / user / stock / product（均勿绑宿主机业务端口）。
+  # 手动扩缩：POST http://localhost:9090/api/scaler/scale  body {"service":"singularity-user","action":"SCALE_UP"}
   singularity-scaler-0:
     image: maven:3.9.9-eclipse-temurin-21
     container_name: singularity-scaler-0
@@ -347,12 +346,12 @@ services:
 
   # k6 在容器内直连 order（不经 LB）。默认三条车道均为 singularity-order:8081，多副本时可能连接仍集中在一台。
   # 若已 --scale singularity-order=3，要对三台「各打一条车道」：用 ORDER_TARGETS；且 k6 **必须** --no-deps，否则 run 会按 compose 默认 1 副本协调依赖、拆掉多余 order。
-  #   .\deploy\run-k6-order-load-with-targets.cmd -Duration 2m
-  #   （若禁止脚本：同上 .cmd；或 powershell -ExecutionPolicy Bypass -File .\deploy\run-k6-order-load-with-targets.ps1）
-  #   或手动：$t = .\k6-print-order-targets.ps1; docker compose -f docker-compose.backend.yml --profile k6 run --rm --no-deps -e "ORDER_TARGETS=$t" k6-order-load
+  #   tests/order-stress-test/run-k6-order-load-with-targets.cmd -Duration 2m
+  #   （若禁止脚本：同上 .cmd；或 powershell -ExecutionPolicy Bypass -File tests/order-stress-test/run-k6-order-load-with-targets.ps1）
+  #   或手动：$t = tests/order-stress-test/k6-print-order-targets.ps1; docker compose -f docker-compose.backend.yml --profile k6 run --rm --no-deps -e "ORDER_TARGETS=$t" k6-order-load
   # 若仍要打单台 LB：-e ORDER_BASE=http://singularity-order-lb-1（不要 ORDER_TARGETS）跑 k6-order-load
   # 推荐专用：--profile k6 run --rm --no-deps k6-order-lb-load（见 tests/order-stress-test/k6-snag-docker-internal-lb.js 头部注释）
-  #   .\deploy\run-k6-order-lb-load.cmd -Duration 2m
+  #   tests/order-stress-test/run-k6-order-lb-load.cmd -Duration 2m
   # 阶梯 RPS + 每档时长（拐点观察 http_req_failed / dropped_iterations；CPU 另开 docker stats）：
   #   docker compose -f docker-compose.backend.yml --profile k6 run --rm -e RPS_RAMP=800,1200,1600,2000 -e STEP_SEC=180 k6-order-ramp
   k6-order-load:
@@ -481,6 +480,41 @@ services:
           -e "RPS_RAMP=$${RPS_RAMP}" \
           -e "STEP_SEC=$${STEP_SEC}" \
           /scripts/k6-snag-docker-internal-ramp.js
+
+  # Gateway + allocate + FraudDetection 阶梯 RPS：tests/order-stress-test/run-k6-order-gateway-fraud-ramp.ps1
+  k6-order-gateway-fraud-ramp:
+    image: grafana/k6:latest
+    profiles: [k6]
+    volumes:
+      - ${REPO_ROOT:-..}/tests/order-stress-test:/scripts:ro
+      - ${REPO_ROOT:-..}/tests/order-stress-test/k6-out:/out:rw
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    environment:
+      ORDER_BASE: "http://singularity-gateway:8080"
+      RPS_RAMP: "500,1000,1500,2000,2500"
+      STEP_SEC: "60"
+      VU_PRE_CAP: "800"
+      VU_MAX_CAP: "4000"
+      SUMMARY_OUT: /out/summary-gateway-fraud-ramp.json
+      CHECK_BUSINESS: "0"
+      K6_START_DELAY: "0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        sleep "$${K6_START_DELAY}"
+        exec k6 run \
+          -e "SUMMARY_OUT=$${SUMMARY_OUT}" \
+          -e "ORDER_BASE=$${ORDER_BASE}" \
+          -e "RPS_RAMP=$${RPS_RAMP}" \
+          -e "STEP_SEC=$${STEP_SEC}" \
+          -e "VU_PRE_CAP=$${VU_PRE_CAP}" \
+          -e "VU_MAX_CAP=$${VU_MAX_CAP}" \
+          -e "CHECK_BUSINESS=$${CHECK_BUSINESS}" \
+          /scripts/k6-snag-gateway-fraud-ramp.js
 
 networks:
   default:

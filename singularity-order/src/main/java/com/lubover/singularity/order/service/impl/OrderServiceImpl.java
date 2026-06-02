@@ -15,10 +15,11 @@ import com.lubover.singularity.order.tx.OrderLocalTransaction;
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
-import org.apache.rocketmq.client.producer.TransactionListener;
-import org.apache.rocketmq.client.producer.TransactionSendResult;
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.common.message.Message;
-import org.apache.rocketmq.common.message.MessageExt;
+import org.apache.rocketmq.common.message.MessageAccessor;
+import org.apache.rocketmq.common.message.MessageConst;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,36 +53,11 @@ public class OrderServiceImpl implements OrderService {
     private final SlotRegistry slotRegistry;
     private final StringRedisTemplate redisTemplate;
     private final DefaultMQProducerImpl producerImpl;
+    private final DefaultMQProducer producer;
     private final ExecutorService executor = new ThreadPoolExecutor(
             20, 50, 60L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(10000),
             new ThreadPoolExecutor.CallerRunsPolicy());
-
-    /**
-     * 原生 RocketMQ TransactionListener。
-     * {@code executeLocalTransaction} 永远返回 UNKNOW —— 主线程显式 commit/rollback。
-     * {@code checkLocalTransaction} 查 Redis —— 进程崩溃时 broker 回查兜底。
-     */
-    private final TransactionListener transactionListener = new TransactionListener() {
-        @Override
-        public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
-            return LocalTransactionState.UNKNOW;
-        }
-
-        @Override
-        public LocalTransactionState checkLocalTransaction(MessageExt msg) {
-            String orderId = msg.getProperty("orderId");
-            if (orderId == null) {
-                return LocalTransactionState.ROLLBACK_MESSAGE;
-            }
-            Boolean exists = redisTemplate.hasKey("order:" + orderId);
-            LocalTransactionState state = Boolean.TRUE.equals(exists)
-                    ? LocalTransactionState.COMMIT_MESSAGE
-                    : LocalTransactionState.ROLLBACK_MESSAGE;
-            log.info("checkLocalTransaction: orderId={} -> {}", orderId, state);
-            return state;
-        }
-    };
 
     @Autowired
     public OrderServiceImpl(
@@ -94,6 +70,7 @@ public class OrderServiceImpl implements OrderService {
             OrderMapper orderMapper,
             UserClient userClient) {
         DefaultMQProducer producer = (DefaultMQProducer) rocketMQTemplate.getProducer();
+        this.producer = producer;
         this.producerImpl = producer.getDefaultMQProducerImpl();
 
         this.allocator = new DefaultAllocator(
@@ -190,10 +167,13 @@ public class OrderServiceImpl implements OrderService {
     /**
      * 三步显式事务（运行在 worker 线程上）：
      * <ol>
-     * <li>发送半消息（listener 返回 UNKNOW）</li>
+     * <li>发送半消息（prepared，保留 broker 返回的 offsetMsgId）</li>
      * <li>执行 Redis Lua（原子减库存 + 写订单）</li>
      * <li>endTransaction commit 或 rollback</li>
      * </ol>
+     * <p>
+     * 不用 {@code sendMessageInTransaction}：其返回的 {@link org.apache.rocketmq.client.producer.TransactionSendResult}
+     * 会丢失 {@code offsetMsgId}，5.x client 对 4.x broker 做 endTransaction 时会误解析 msgId。
      */
     private Result executeTransaction(String orderId, OrderMessage orderMessage,
                                       OrderLocalTransaction localTx) {
@@ -207,14 +187,22 @@ public class OrderServiceImpl implements OrderService {
             return new Result(false, "序列化失败");
         }
 
-        // Step 1: 发送半消息
-        TransactionSendResult sendResult;
+        // Step 1: 发送半消息（SendResult 含 broker offsetMsgId，供 endTransaction 解码）
+        MessageAccessor.putProperty(nativeMsg, MessageConst.PROPERTY_TRANSACTION_PREPARED, "true");
+        MessageAccessor.putProperty(nativeMsg, MessageConst.PROPERTY_PRODUCER_GROUP, producer.getProducerGroup());
+        SendResult sendResult;
         try {
-            sendResult = producerImpl.sendMessageInTransaction(
-                    nativeMsg, transactionListener, null);
+            sendResult = producerImpl.send(nativeMsg);
         } catch (Exception e) {
             log.error("发送半消息失败: orderId={}", orderId, e);
             return new Result(false, "发送半消息失败");
+        }
+        if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
+            log.error("发送半消息未成功: orderId={} status={}", orderId, sendResult.getSendStatus());
+            return new Result(false, "发送半消息失败");
+        }
+        if (sendResult.getTransactionId() != null) {
+            nativeMsg.putUserProperty("__transactionId__", sendResult.getTransactionId());
         }
 
         // Step 2: 执行本地事务（Redis Lua）

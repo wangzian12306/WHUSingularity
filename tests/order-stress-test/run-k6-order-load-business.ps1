@@ -5,7 +5,8 @@ param(
     [string]$StrictBusinessMinRate = ""
 )
 $ErrorActionPreference = "Stop"
-Set-Location $PSScriptRoot
+$DeployDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..\deploy')).Path
+Set-Location $DeployDir
 # k6-snag-docker-internal-business.js -> k6-out/summary-docker-business.json
 # Optional: -StrictBusinessMinRate 0.05 (with Redis refilled)
 $strict = $StrictBusinessMinRate -and $StrictBusinessMinRate.Trim().Length -gt 0
