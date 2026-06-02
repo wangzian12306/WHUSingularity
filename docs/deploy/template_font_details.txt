@@ -1,0 +1,344 @@
+================================================================================
+1. 样式定义 (style-level properties)
+================================================================================
+
+--- 样式: 'Heading 1' (type=PARAGRAPH (1)) ---
+  paragraph_format.alignment = None
+  paragraph_format.space_before = 215900
+  paragraph_format.space_after = 209550
+  paragraph_format.line_spacing = 2.408333333333333
+  paragraph_format.first_line_indent = None
+  paragraph_format.left_indent = None
+  font.name = None
+  font.size = 279400
+  font.bold = True
+  font.italic = None
+  font.underline = None
+
+--- 样式: 'Heading 2' (type=PARAGRAPH (1)) ---
+  paragraph_format.alignment = None
+  paragraph_format.space_before = 165100
+  paragraph_format.space_after = 165100
+  paragraph_format.line_spacing = 1.7333333333333334
+  paragraph_format.first_line_indent = None
+  paragraph_format.left_indent = None
+  font.name = None
+  font.size = 203200
+  font.bold = True
+  font.italic = None
+  font.underline = None
+  rFonts.eastAsia = None
+  rFonts.ascii = None
+  rFonts.hAnsi = None
+
+--- 样式: 'Heading 3' (type=PARAGRAPH (1)) ---
+  paragraph_format.alignment = None
+  paragraph_format.space_before = 165100
+  paragraph_format.space_after = 165100
+  paragraph_format.line_spacing = 1.7333333333333334
+  paragraph_format.first_line_indent = None
+  paragraph_format.left_indent = None
+  font.name = None
+  font.size = 203200
+  font.bold = True
+  font.italic = None
+  font.underline = None
+
+--- 样式: 'List Paragraph' (type=PARAGRAPH (1)) ---
+  paragraph_format.alignment = None
+  paragraph_format.space_before = None
+  paragraph_format.space_after = None
+  paragraph_format.line_spacing = None
+  paragraph_format.first_line_indent = 266700
+  paragraph_format.left_indent = None
+  font.name = None
+  font.size = None
+  font.bold = None
+  font.italic = None
+  font.underline = None
+
+--- 样式: 'Normal' (type=PARAGRAPH (1)) ---
+  paragraph_format.alignment = JUSTIFY (3)
+  paragraph_format.space_before = None
+  paragraph_format.space_after = None
+  paragraph_format.line_spacing = None
+  paragraph_format.first_line_indent = None
+  paragraph_format.left_indent = None
+  font.name = None
+  font.size = None
+  font.bold = None
+  font.italic = None
+  font.underline = None
+
+--- 样式: '主题' (type=PARAGRAPH (1)) ---
+  paragraph_format.alignment = CENTER (1)
+  paragraph_format.space_before = None
+  paragraph_format.space_after = None
+  paragraph_format.line_spacing = 1.5
+  paragraph_format.first_line_indent = None
+  paragraph_format.left_indent = 1080135
+  font.name = 宋体
+  font.size = 330200
+  font.bold = None
+  font.italic = None
+  font.underline = None
+  rFonts.eastAsia = 宋体
+  rFonts.ascii = 宋体
+  rFonts.hAnsi = 宋体
+
+
+================================================================================
+2. 表格结构及内容 (用于对照填充)
+================================================================================
+
+[表格 0] 5行 × 3列
+  行0列0: P0(Normal,align=None)='文档状态';   run: font=Times New Roman size=114300 bold=None
+  行0列1: P0(Normal,align=None)='保密级别';   run: font=Times New Roman size=114300 bold=None
+  行0列2: P0(Normal,align=None)=''
+  行1列0: P0(Normal,align=None)='[ √ ]草稿';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P1(Normal,align=None)='[  ]修订';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P2(Normal,align=None)='[  ]发布';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None
+  行1列1: P0(Normal,align=None)='文档编号';   run: font=Times New Roman size=114300 bold=None
+  行1列2: P0(Normal,align=None)=''
+  行2列0: P0(Normal,align=None)='[ √ ]草稿';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P1(Normal,align=None)='[  ]修订';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P2(Normal,align=None)='[  ]发布';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None
+  行2列1: P0(Normal,align=None)='管理部门';   run: font=Times New Roman size=114300 bold=None
+  行2列2: P0(Normal,align=None)=''
+  行3列0: P0(Normal,align=None)='[ √ ]草稿';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P1(Normal,align=None)='[  ]修订';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P2(Normal,align=None)='[  ]发布';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None
+  行3列1: P0(Normal,align=None)='修订年月';   run: font=Times New Roman size=114300 bold=None
+  行3列2: P0(Normal,align=None)=''
+  行4列0: P0(Normal,align=None)='[ √ ]草稿';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P1(Normal,align=None)='[  ]修订';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None; P2(Normal,align=None)='[  ]发布';   run: font=Times New Roman size=114300 bold=None;   run: font=Times New Roman size=114300 bold=None
+  行4列1: P0(Normal,align=None)='版本号';   run: font=Times New Roman size=114300 bold=None
+  行4列2: P0(Normal,align=None)=''
+
+[表格 1] 2行 × 3列
+  行0列0: P0(Normal,align=CENTER (1))='修订人签字';   run: font=Times New Roman size=None bold=True
+  行0列1: P0(Normal,align=CENTER (1))='审核人签字';   run: font=Times New Roman size=None bold=True
+  行0列2: P0(Normal,align=CENTER (1))='批准人签字';   run: font=Times New Roman size=None bold=True
+  行1列0: P0(Normal,align=None)=''; P1(Normal,align=None)=''; P2(Normal,align=None)=''; P3(Normal,align=None)=''; P4(Normal,align=None)='日期：';   run: font=Times New Roman size=None bold=None
+  行1列1: P0(Normal,align=None)=''; P1(Normal,align=None)=''; P2(Normal,align=None)=''; P3(Normal,align=None)=''; P4(Normal,align=None)='日期：';   run: font=Times New Roman size=None bold=None
+  行1列2: P0(Normal,align=None)=''; P1(Normal,align=None)=''; P2(Normal,align=None)=''; P3(Normal,align=None)=''; P4(Normal,align=None)='日期：';   run: font=Times New Roman size=None bold=None
+
+[表格 2] 5行 × 8列
+  行0列0: P0(Normal,align=CENTER (1))='序号';   run: font=Times New Roman size=None bold=True
+  行0列1: P0(Normal,align=CENTER (1))='变更日期';   run: font=Times New Roman size=None bold=True
+  行0列2: P0(Normal,align=CENTER (1))='版本';   run: font=Times New Roman size=None bold=True
+  行0列3: P0(Normal,align=CENTER (1))='变更位置';   run: font=Times New Roman size=None bold=True
+  行0列4: P0(Normal,align=CENTER (1))='变更原因';   run: font=Times New Roman size=None bold=True
+  行0列5: P0(Normal,align=CENTER (1))='修订人';   run: font=Times New Roman size=None bold=True
+  行0列6: P0(Normal,align=CENTER (1))='审核人';   run: font=Times New Roman size=None bold=True
+  行0列7: P0(Normal,align=CENTER (1))='批准人';   run: font=Times New Roman size=None bold=True
+  行1列0: P0(Normal,align=CENTER (1))='1';   run: font=Times New Roman size=None bold=None
+  行1列1: P0(Normal,align=None)=''
+  行1列2: P0(Normal,align=None)=''
+  行1列3: P0(Normal,align=None)=''
+  行1列4: P0(Normal,align=None)=''
+  行1列5: P0(Normal,align=None)=''
+  行1列6: P0(Normal,align=None)=''
+  行1列7: P0(Normal,align=None)=''
+  行2列0: P0(Normal,align=CENTER (1))=''
+  行2列1: P0(Normal,align=None)=''
+  行2列2: P0(Normal,align=None)=''
+  行2列3: P0(Normal,align=None)=''
+  行2列4: P0(Normal,align=None)=''
+  行2列5: P0(Normal,align=None)=''
+  行2列6: P0(Normal,align=None)=''
+  行2列7: P0(Normal,align=None)=''
+  行3列0: P0(Normal,align=CENTER (1))=''
+  行3列1: P0(Normal,align=None)=''
+  行3列2: P0(Normal,align=None)=''
+  行3列3: P0(Normal,align=None)=''
+  行3列4: P0(Normal,align=None)=''
+  行3列5: P0(Normal,align=None)=''
+  行3列6: P0(Normal,align=None)=''
+  行3列7: P0(Normal,align=None)=''
+  行4列0: P0(Normal,align=CENTER (1))=''
+  行4列1: P0(Normal,align=None)=''
+  行4列2: P0(Normal,align=None)=''
+  行4列3: P0(Normal,align=None)=''
+  行4列4: P0(Normal,align=None)=''
+  行4列5: P0(Normal,align=None)=''
+  行4列6: P0(Normal,align=None)=''
+  行4列7: P0(Normal,align=None)=''
+
+[表格 3] 5行 × 2列
+  行0列0: P0(Normal,align=CENTER (1))='硬件1';   run: font=Times New Roman size=None bold=True;   run: font=Times New Roman size=None bold=True
+  行0列1: P0(Normal,align=CENTER (1))='硬件1';   run: font=Times New Roman size=None bold=True;   run: font=Times New Roman size=None bold=True
+  行1列0: P0(Normal,align=CENTER (1))='品牌';   run: font=Times New Roman size=None bold=True
+  行1列1: P0(Normal,align=None)=''
+  行2列0: P0(Normal,align=CENTER (1))='型号';   run: font=Times New Roman size=None bold=True
+  行2列1: P0(Normal,align=None)=''
+  行3列0: P0(Normal,align=CENTER (1))='用途';   run: font=Times New Roman size=None bold=True
+  行3列1: P0(Normal,align=None)=''
+  行4列0: P0(Normal,align=CENTER (1))='配置信息';   run: font=Times New Roman size=None bold=True
+  行4列1: P0(Normal,align=None)=''
+
+[表格 4] 6行 × 3列
+  行0列0: P0(Normal,align=CENTER (1))='JDK';   run: font=Times New Roman size=None bold=True
+  行0列1: P0(Normal,align=CENTER (1))='版本';   run: font=Times New Roman size=None bold=True
+  行0列2: P0(Normal,align=None)=''
+  行1列0: P0(Normal,align=CENTER (1))='JDK';   run: font=Times New Roman size=None bold=True
+  行1列1: P0(Normal,align=CENTER (1))='安装路径';   run: font=Times New Roman size=None bold=True
+  行1列2: P0(Normal,align=None)=''
+  行2列0: P0(Normal,align=CENTER (1))='Tomcat';   run: font=Times New Roman size=None bold=True
+  行2列1: P0(Normal,align=CENTER (1))='版本';   run: font=Times New Roman size=None bold=True
+  行2列2: P0(Normal,align=None)=''
+  行3列0: P0(Normal,align=CENTER (1))='Tomcat';   run: font=Times New Roman size=None bold=True
+  行3列1: P0(Normal,align=CENTER (1))='安装路径';   run: font=Times New Roman size=None bold=True
+  行3列2: P0(Normal,align=None)=''
+  行4列0: P0(Normal,align=CENTER (1))='Oracle数据库';   run: font=Times New Roman size=None bold=True;   run: font=Times New Roman size=None bold=True
+  行4列1: P0(Normal,align=CENTER (1))='版本';   run: font=Times New Roman size=None bold=True
+  行4列2: P0(Normal,align=None)=''
+  行5列0: P0(Normal,align=CENTER (1))='Oracle数据库';   run: font=Times New Roman size=None bold=True;   run: font=Times New Roman size=None bold=True
+  行5列1: P0(Normal,align=CENTER (1))='安装路径';   run: font=Times New Roman size=None bold=True
+  行5列2: P0(Normal,align=None)=''
+
+
+================================================================================
+3. 段落 Run 级覆盖 (与样式不同的地方)
+================================================================================
+  [P0] style=主题 | text='XXX' | font.name=Times New Roman bold=True
+  [P0] style=主题 | text='项目' | font.name=Times New Roman bold=True
+  [P1] style=主题 | text='安装维护' | font.name=Times New Roman size=279400 (22.0pt) bold=True
+  [P1] style=主题 | text='手册' | font.name=Times New Roman size=279400 (22.0pt) bold=True
+  [P3] style=Normal | text='' | font.name=Times New Roman
+  [P4] style=Normal | text='变更履历' | font.name=Times New Roman size=203200 (16.0pt)
+  [P5] style=Normal | text='说明：' | font.name=Times New Roman
+  [P5] style=Normal | text='“' | font.name=Times New Roman
+  [P5] style=Normal | text='变更原因' | font.name=Times New Roman
+  [P5] style=Normal | text='”' | font.name=Times New Roman
+  [P5] style=Normal | text='主要是分为：' | font.name=Times New Roman
+  [P6] style=List Paragraph | text='建立初稿' | font.name=Times New Roman
+  [P7] style=List Paragraph | text='内容修订' | font.name=Times New Roman
+  [P8] style=List Paragraph | text='正式发布' | font.name=Times New Roman
+  [P9] style=Normal | text='' | font.name=Times New Roman
+  [P11] style=Heading 1 | text='引言' | font.name=Times New Roman
+  [P12] style=Heading 2 | text='编写目的' | font.name=Times New Roman
+  [P13] style=Normal | text='编写目的内容' | font.name=Times New Roman
+  [P14] style=Heading 2 | text='软件背景' | font.name=Times New Roman
+  [P15] style=Normal | text='软件背景的内容' | font.name=Times New Roman
+  [P16] style=Heading 1 | text='操作系统安装' | font.name=Times New Roman
+  [P17] style=Heading 2 | text='硬件环境' | font.name=Times New Roman
+  [P19] style=Heading 2 | text='Linux' | font.name=Times New Roman
+  [P19] style=Heading 2 | text='系统安装' | font.name=Times New Roman
+  [P20] style=Normal | text='简单简介' | font.name=Times New Roman
+  [P21] style=Heading 3 | text='准备工作' | font.name=Times New Roman
+  [P22] style=Normal | text='简单说明' | font.name=Times New Roman
+  [P23] style=Heading 3 | text='安装过程' | font.name=Times New Roman
+  [P24] style=Normal | text='按步骤介绍安装过程并附安装截图' | font.name=Times New Roman
+  [P25] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P25] style=Normal | text='1' | font.name=Times New Roman bold=True
+  [P25] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P25] style=Normal | text='：' | font.name=Times New Roman
+  [P26] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P26] style=Normal | text='2' | font.name=Times New Roman bold=True
+  [P26] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P26] style=Normal | text='：' | font.name=Times New Roman
+  [P27] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P27] style=Normal | text='3' | font.name=Times New Roman bold=True
+  [P27] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P27] style=Normal | text='：' | font.name=Times New Roman
+  [P28] style=Heading 1 | text='Oracle' | font.name=Times New Roman
+  [P28] style=Heading 1 | text='数据库安装' | font.name=Times New Roman
+  [P29] style=Heading 2 | text='前期准备' | font.name=Times New Roman
+  [P30] style=Normal | text='简单说明' | font.name=Times New Roman
+  [P31] style=Heading 2 | text='安装流程' | font.name=Times New Roman
+  [P32] style=Normal | text='按步骤介绍安装过程并附安装截图' | font.name=Times New Roman
+  [P33] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P33] style=Normal | text='1' | font.name=Times New Roman bold=True
+  [P33] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P33] style=Normal | text='：' | font.name=Times New Roman
+  [P34] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P34] style=Normal | text='2' | font.name=Times New Roman bold=True
+  [P34] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P34] style=Normal | text='：' | font.name=Times New Roman
+  [P35] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P35] style=Normal | text='3' | font.name=Times New Roman bold=True
+  [P35] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P35] style=Normal | text='：' | font.name=Times New Roman
+  [P36] style=Heading 1 | text='项目应用部署' | font.name=Times New Roman
+  [P37] style=Heading 2 | text='WEB' | font.name=Times New Roman
+  [P37] style=Heading 2 | text='应用程序发布' | font.name=Times New Roman
+  [P38] style=Normal | text='简要说明' | font.name=Times New Roman
+  [P39] style=Heading 3 | text='JDK' | font.name=Times New Roman
+  [P39] style=Heading 3 | text='的安装' | font.name=Times New Roman
+  [P40] style=Normal | text='按步骤介绍安装过程并附安装截图' | font.name=Times New Roman
+  [P41] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P41] style=Normal | text='1' | font.name=Times New Roman bold=True
+  [P41] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P41] style=Normal | text='：' | font.name=Times New Roman
+  [P42] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P42] style=Normal | text='2' | font.name=Times New Roman bold=True
+  [P42] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P42] style=Normal | text='：' | font.name=Times New Roman
+  [P43] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P43] style=Normal | text='3' | font.name=Times New Roman bold=True
+  [P43] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P43] style=Normal | text='：' | font.name=Times New Roman
+  [P44] style=Heading 3 | text='Tomcat' | font.name=Times New Roman
+  [P44] style=Heading 3 | text='的安装' | font.name=Times New Roman
+  [P45] style=Normal | text='按步骤介绍安装过程并附安装截图' | font.name=Times New Roman
+  [P46] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P46] style=Normal | text='1' | font.name=Times New Roman bold=True
+  [P46] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P46] style=Normal | text='：' | font.name=Times New Roman
+  [P47] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P47] style=Normal | text='2' | font.name=Times New Roman bold=True
+  [P47] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P47] style=Normal | text='：' | font.name=Times New Roman
+  [P48] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P48] style=Normal | text='3' | font.name=Times New Roman bold=True
+  [P48] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P48] style=Normal | text='：' | font.name=Times New Roman
+  [P49] style=Heading 3 | text='Web' | font.name=Times New Roman
+  [P49] style=Heading 3 | text='应用程序部署' | font.name=Times New Roman
+  [P50] style=Normal | text='按步骤介绍安装过程并附安装截图' | font.name=Times New Roman
+  [P51] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P51] style=Normal | text='1' | font.name=Times New Roman bold=True
+  [P51] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P51] style=Normal | text='：' | font.name=Times New Roman
+  [P52] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P52] style=Normal | text='2' | font.name=Times New Roman bold=True
+  [P52] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P52] style=Normal | text='：' | font.name=Times New Roman
+  [P53] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P53] style=Normal | text='3' | font.name=Times New Roman bold=True
+  [P53] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P53] style=Normal | text='：' | font.name=Times New Roman
+  [P54] style=Heading 2 | text='数据库部署' | font.name=Times New Roman
+  [P55] style=Normal | text='按步骤介绍安装过程并附安装截图' | font.name=Times New Roman
+  [P56] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P56] style=Normal | text='1' | font.name=Times New Roman bold=True
+  [P56] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P56] style=Normal | text='：' | font.name=Times New Roman
+  [P57] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P57] style=Normal | text='2' | font.name=Times New Roman bold=True
+  [P57] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P57] style=Normal | text='：' | font.name=Times New Roman
+  [P58] style=Normal | text='第' | font.name=Times New Roman bold=True
+  [P58] style=Normal | text='3' | font.name=Times New Roman bold=True
+  [P58] style=Normal | text='步' | font.name=Times New Roman bold=True
+  [P58] style=Normal | text='：' | font.name=Times New Roman
+  [P59] style=Heading 2 | text='系统部署信息汇总' | font.name=Times New Roman
+  [P60] style=Normal | text='系统部署信息汇总表' | font.name=Times New Roman bold=True
+  [P62] style=Heading 1 | text='系统管理员平台维护' | font.name=Times New Roman
+  [P63] style=Normal | text='简单介绍内容' | font.name=Times New Roman
+  [P64] style=Heading 2 | text='数据字典' | font.name=Times New Roman
+  [P65] style=Normal | text='数据字典部分内容' | font.name=Times New Roman
+  [P66] style=Heading 2 | text='组织机构' | font.name=Times New Roman
+  [P67] style=Normal | text='组织机构部分内容' | font.name=Times New Roman
+  [P68] style=Heading 2 | text='用户管理' | font.name=Times New Roman
+  [P69] style=Normal | text='用户管理部分内容' | font.name=Times New Roman
+  [P70] style=Heading 2 | text='工作分配' | font.name=Times New Roman
+  [P71] style=Normal | text='工作分配部分内容' | font.name=Times New Roman
+  [P72] style=Heading 2 | text='基础数据维护' | font.name=Times New Roman
+  [P73] style=Normal | text='基础数据部分内容' | font.name=Times New Roman
+  [P74] style=Heading 2 | text='用户注册审批' | font.name=Times New Roman
+  [P75] style=Normal | text='用户注册审批部分内容' | font.name=Times New Roman
+
+
+================================================================================
+4. 表格使用的样式
+================================================================================
+  Table 0 style = Table Grid
+  Table 1 style = Table Grid
+  Table 2 style = Table Grid
+  Table 3 style = Table Grid
+  Table 4 style = Table Grid

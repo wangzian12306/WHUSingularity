@@ -120,7 +120,7 @@ public class FraudDetectionInterceptor implements Interceptor {
         // ---- Phase 1: 行为指纹特征哈希（CPU 密集型） ----
         // 对多个特征组合做多轮 SHA-256，产出固定维度特征向量。
         // 工业界称为 "Feature Hashing" / "Hashing Trick"，用于隐私保护的特征工程。
-        double[] featureVector = computeFeatureVector(actorId, slotId, now, hashRounds);
+        double[] featureVector = computeFeatureVector(actorId, slotId, now, hashRounds, windowSeconds);
 
         // ---- Phase 2: 更新行为窗口 & 风险评分 ----
         BehaviorWindow window = behaviorCache.get(actorId,
@@ -135,14 +135,14 @@ public class FraudDetectionInterceptor implements Interceptor {
 
         // ---- Phase 3: 高风险拦截 ----
         if (riskScore >= riskThreshold) {
-            log.warn("FRAUD BLOCKED: actor={} slot={} riskScore={:.3f} level={} reqsInWindow={}",
+            log.warn("FRAUD BLOCKED: actor={} slot={} riskScore={} level={} reqsInWindow={}",
                     actorId, slotId, riskScore, riskLevel, window.requestCount);
             context.setResult(new Result(false, "风控拦截：行为异常，抢单被拒绝"));
             return;
         }
 
         if (log.isDebugEnabled()) {
-            log.debug("fraud check: actor={} slot={} riskScore={:.3f} level={}",
+            log.debug("fraud check: actor={} slot={} riskScore={} level={}",
                     actorId, slotId, riskScore, riskLevel);
         }
 
@@ -163,9 +163,11 @@ public class FraudDetectionInterceptor implements Interceptor {
      *   <li>跨槽位跳变特征：actorId + slotId + 时间桶</li>
      * </ul>
      */
-    static double[] computeFeatureVector(String actorId, String slotId, long nowMs, int rounds) {
+    static double[] computeFeatureVector(String actorId, String slotId, long nowMs,
+                                         int rounds, int windowSeconds) {
         // 时间桶：将时间按 windowSeconds 分桶，同一桶内请求归为同一时间窗口
-        long timeBucket = nowMs / 5000; // 5s 桶，与 windowSeconds 对齐
+        long bucketMillis = Math.max(1, windowSeconds) * 1000L;
+        long timeBucket = nowMs / bucketMillis;
 
         // 4 个特征维度
         String[] features = {
@@ -202,7 +204,7 @@ public class FraudDetectionInterceptor implements Interceptor {
      * 由 Caffeine 自动过期管理生命周期。
      */
     static class BehaviorWindow {
-        final long windowStartMs;
+        long windowStartMs;
         final int windowMs;
         final int maxRequests;
         int requestCount;
@@ -233,8 +235,10 @@ public class FraudDetectionInterceptor implements Interceptor {
         synchronized double recordAndScore(long nowMs, String slotId, double[] features) {
             // 窗口过期重置
             if (nowMs - windowStartMs > windowMs) {
+                windowStartMs = nowMs;
                 requestCount = 0;
                 slotSwitchCount = 0;
+                lastSlotId = null;
             }
 
             requestCount++;
