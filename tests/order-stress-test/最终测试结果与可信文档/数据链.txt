@@ -1,0 +1,59 @@
+# HELP order_snag_interceptor_seconds  
+# TYPE order_snag_interceptor_seconds summary
+order_snag_interceptor_seconds{quantile="0.5",} 0.0
+order_snag_interceptor_seconds{quantile="0.95",} 0.0
+order_snag_interceptor_seconds{quantile="0.99",} 0.0
+order_snag_interceptor_seconds_count 0.0
+order_snag_interceptor_seconds_sum 0.0
+# HELP order_snag_interceptor_seconds_max  
+# TYPE order_snag_interceptor_seconds_max gauge
+order_snag_interceptor_seconds_max 0.0
+# HELP order_snag_local_tx_seconds  
+# TYPE order_snag_local_tx_seconds summary
+order_snag_local_tx_seconds{quantile="0.5",} 0.0
+order_snag_local_tx_seconds{quantile="0.95",} 0.0
+order_snag_local_tx_seconds{quantile="0.99",} 0.0
+order_snag_local_tx_seconds_count 1142937.0
+order_snag_local_tx_seconds_sum 3497.941314547
+# HELP order_snag_local_tx_seconds_max  
+# TYPE order_snag_local_tx_seconds_max gauge
+order_snag_local_tx_seconds_max 0.055979582
+# HELP order_snag_tx_send_seconds
+# TYPE order_snag_tx_send_seconds summary
+order_snag_tx_send_seconds{quantile="0.5",} 0.0
+order_snag_tx_send_seconds{quantile="0.95",} 0.0
+order_snag_tx_send_seconds{quantile="0.99",} 0.0
+order_snag_tx_send_seconds_count 1142937.0
+order_snag_tx_send_seconds_sum 9497.342812613
+# HELP order_snag_tx_send_seconds_max
+# TYPE order_snag_tx_send_seconds_max gauge
+order_snag_tx_send_seconds_max 0.10214651
+# HELP order_snag_handler_seconds
+# TYPE order_snag_handler_seconds summary
+order_snag_handler_seconds{quantile="0.5",} 0.0
+order_snag_handler_seconds{quantile="0.95",} 0.0
+order_snag_handler_seconds{quantile="0.99",} 0.0
+order_snag_handler_seconds_count 0.0
+order_snag_handler_seconds_sum 0.0
+# HELP order_snag_handler_seconds_max
+# TYPE order_snag_handler_seconds_max gauge
+order_snag_handler_seconds_max 0.0
+# HELP order_snag_local_tx_outcome_total
+# TYPE order_snag_local_tx_outcome_total counter
+order_snag_local_tx_outcome_total{result="ok",slot="bucket-1",} 1142937.0   
+# HELP order_snag_tx_state_total
+# TYPE order_snag_tx_state_total counter
+order_snag_tx_state_total{path="by_product",state="COMMIT_MESSAGE",} 1142937.0
+# HELP order_snag_remaining
+# TYPE order_snag_remaining summary
+order_snag_remaining{quantile="0.5",} 0.0
+order_snag_remaining{quantile="0.95",} 0.0
+order_snag_remaining{quantile="0.99",} 0.0
+order_snag_remaining_count 1142937.0
+order_snag_remaining_sum 5.6493696935547E13
+# HELP order_snag_remaining_max
+# TYPE order_snag_remaining_max gauge
+order_snag_remaining_max 4.9776741E7
+# HELP order_snag_outcome_total
+# TYPE order_snag_outcome_total counter
+order_snag_outcome_total{path="by_product",result="success",slot="bucket-1",} 1142937.0
