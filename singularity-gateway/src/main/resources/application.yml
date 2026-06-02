@@ -1,0 +1,62 @@
+server:
+  port: 8080
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: user-route
+          uri: lb://singularity-user
+          predicates:
+            - Path=/api/user/**
+        - id: order-route
+          uri: lb://singularity-order
+          predicates:
+            - Path=/api/order/**
+        - id: stock-route
+          uri: lb://singularity-stock
+          predicates:
+            - Path=/api/stock/**
+        - id: product-route
+          uri: lb://singularity-product
+          predicates:
+            - Path=/api/product/**
+        - id: merchant-route
+          uri: lb://singularity-merchant
+          predicates:
+            - Path=/api/merchant/**
+        - id: merchant-product-route
+          uri: lb://singularity-merchant
+          predicates:
+            - Path=/api/merchant-product,/api/merchant-product/**
+          filters:
+            - RewritePath=/api/merchant-product(?<segment>/?.*), /api/product$\{segment}
+        - id: merchant-inventory-route
+          uri: lb://singularity-merchant
+          predicates:
+            - Path=/api/inventory/**
+        - id: scaler-route
+          uri: lb://singularity-scaler
+          predicates:
+            - Path=/api/scaler/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+singularity:
+  gateway:
+    trace-header:
+      enabled: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: WARN
+    reactor.netty: WARN

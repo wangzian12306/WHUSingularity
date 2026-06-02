@@ -1,0 +1,42 @@
+package com.lubover.singularity.merchant.exception;
+
+import org.springframework.http.HttpStatus;
+
+public enum ErrorCode {
+    REQ_INVALID_PARAM(HttpStatus.BAD_REQUEST, "REQ_INVALID_PARAM", "request param invalid"),
+    MERCHANT_USERNAME_EXISTS(HttpStatus.CONFLICT, "MERCHANT_USERNAME_EXISTS", "username already exists"),
+    MERCHANT_NOT_FOUND(HttpStatus.NOT_FOUND, "MERCHANT_NOT_FOUND", "merchant not found"),
+    MERCHANT_STATUS_INVALID(HttpStatus.BAD_REQUEST, "MERCHANT_STATUS_INVALID", "merchant status invalid"),
+    PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "product not found"),
+    PRODUCT_NOT_BELONG_TO_MERCHANT(HttpStatus.FORBIDDEN, "PRODUCT_NOT_BELONG_TO_MERCHANT", "product not belong to this merchant"),
+    AUTH_BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED, "AUTH_BAD_CREDENTIALS", "bad credentials"),
+    AUTH_TOKEN_MISSING(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_MISSING", "token missing"),
+    AUTH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_INVALID", "token invalid"),
+    AUTH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "AUTH_TOKEN_EXPIRED", "token expired"),
+    AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "AUTH_FORBIDDEN", "forbidden"),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "unauthorized"),
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "internal server error"),
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error");
+
+    private final HttpStatus status;
+    private final String code;
+    private final String defaultMessage;
+
+    ErrorCode(HttpStatus status, String code, String defaultMessage) {
+        this.status = status;
+        this.code = code;
+        this.defaultMessage = defaultMessage;
+    }
+
+    public HttpStatus getStatus() {
+        return status;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public String getDefaultMessage() {
+        return defaultMessage;
+    }
+}

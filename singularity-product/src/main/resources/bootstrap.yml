@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: singularity-product
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      discovery:
+        enabled: true
+        namespace: public
+        group: DEFAULT_GROUP
+      config:
+        enabled: true
+        namespace: public
+        group: DEFAULT_GROUP
+        file-extension: yaml
+        refresh-enabled: true

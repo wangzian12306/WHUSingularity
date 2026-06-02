@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: singularity-merchant
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+      config:
+        enabled: false

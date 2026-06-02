@@ -1,0 +1,135 @@
+server:
+  port: 9090
+  ssl:
+    enabled: false
+
+spring:
+  application:
+    name: singularity-scaler
+  cloud:
+    nacos:
+      server-addr: ${SPRING_CLOUD_NACOS_SERVER_ADDR:127.0.0.1:8848}
+      discovery:
+        enabled: true
+        namespace: public
+        group: DEFAULT_GROUP
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+scaler:
+  interval-seconds: 15
+  cooldown-seconds: 120
+  metrics-max-snapshot-gap-seconds: 120
+  history-size: 10
+  # 两次成功 QPS 采样间隔超过此秒数则本周期不据 QPS 缩扩容，避免「长时间空窗 + 小增量」算成假低 QPS
+  # 可靠 QPS 下连续满足「应缩容」的调度轮数（每轮 interval-seconds）后才真正 scale down
+  scale-down-min-consecutive-polls: 3
+  # 副本启动后满该秒数才把 docker stats 用于扩容；启动期 CPU 高不误判（JVM 指标仍可触发扩容）
+  docker-stats-grace-seconds-after-start: 30
+  # Docker CPU 暴增：与上一轮采样（约 interval-seconds）比较，Δ 或「idle→高负载」满足则扩容（可与 70% 绝对阈值无关）
+  # 例：平常 ~1% 归一化约 0.01，压测瞬时打满 cap=1.0，Δ≈0.99 > 0.38；idle→load：0.01<0.18 且 1.0>=0.45
+  docker-cpu-surge-delta-threshold: 0.42
+  docker-cpu-surge-low-baseline: 0.18
+  docker-cpu-surge-high-water: 0.52
+  docker-cpu-surge-max-poll-gap-seconds: 50
+  # 自动缩容：docker 聚合 CPU（0~1）仍 >= 该值时不删副本；0=关闭。宜低于 cpu-scale-up-threshold(0.70)
+  docker-cpu-scale-down-block-threshold: 0.35
+  compose-project: ${SCALER_COMPOSE_PROJECT:singularity}
+  compose-file: ${SCALER_COMPOSE_FILE:/workspace/deploy/docker-compose.backend.yml}
+  services:
+    - name: singularity-order
+      scale-mode: compose
+      compose-service: singularity-order
+      base-port: 8081
+      port-step: 2
+      min-instances: 1
+      max-instances: 5
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      docker-cpu-scale-down-block-threshold: 0.35
+      scale-down-consecutive-periods: 3
+      image: maven:3.9.9-eclipse-temurin-21
+      env:
+        SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+        SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_order?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+        SPRING_DATASOURCE_USERNAME: root
+        SPRING_DATASOURCE_PASSWORD: root
+        SPRING_DATA_REDIS_HOST: redis
+        SPRING_DATA_REDIS_PORT: "6379"
+        ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+        ROCKETMQ_PRODUCER_GROUP: order-producer-group
+        ROCKETMQ_CONSUMER_GROUP: order-consumer-group
+        SPRING_APPLICATION_JSON: '{"singularity":{"order":{"slots":[{"id":"bucket-1","redis-key":"stock:bucket-1","product-id":"PROD_001"},{"id":"bucket-2","redis-key":"stock:bucket-2","product-id":"PROD_002"}]}}}'
+    - name: singularity-user
+      scale-mode: compose
+      compose-service: singularity-user
+      base-port: 8090
+      port-step: 1
+      min-instances: 1
+      max-instances: 5
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      scale-down-consecutive-periods: 3
+      image: maven:3.9.9-eclipse-temurin-21
+      env:
+        SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+        SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_user?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+        SPRING_DATASOURCE_USERNAME: root
+        SPRING_DATASOURCE_PASSWORD: root
+        SPRING_DATA_REDIS_HOST: redis
+        SPRING_DATA_REDIS_PORT: "6379"
+        JWT_SECRET: dev-secret-key
+    - name: singularity-stock
+      scale-mode: compose
+      compose-service: singularity-stock
+      base-port: 8082
+      port-step: 2
+      min-instances: 1
+      max-instances: 5
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      scale-down-consecutive-periods: 3
+      image: maven:3.9.9-eclipse-temurin-21
+      env:
+        SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+        SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_stock?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+        SPRING_DATASOURCE_USERNAME: root
+        SPRING_DATASOURCE_PASSWORD: root
+        SPRING_DATA_REDIS_HOST: redis
+        SPRING_DATA_REDIS_PORT: "6379"
+        ROCKETMQ_NAME_SERVER: rmq-namesrv:9876
+        ROCKETMQ_CONSUMER_GROUP: stock-consumer-group
+    - name: singularity-product
+      scale-mode: compose
+      compose-service: singularity-product
+      base-port: 8087
+      port-step: 1
+      min-instances: 1
+      max-instances: 5
+      cpu-scale-up-threshold: 0.70
+      memory-scale-up-threshold: 0.80
+      cpu-scale-down-threshold: 0.20
+      memory-scale-down-threshold: 0.30
+      scale-down-consecutive-periods: 3
+      image: maven:3.9.9-eclipse-temurin-21
+      env:
+        SPRING_CLOUD_NACOS_SERVER_ADDR: nacos:8848
+        SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/singularity_product?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+        SPRING_DATASOURCE_USERNAME: root
+        SPRING_DATASOURCE_PASSWORD: root
+        SPRING_DATA_REDIS_HOST: redis
+        SPRING_DATA_REDIS_PORT: "6379"

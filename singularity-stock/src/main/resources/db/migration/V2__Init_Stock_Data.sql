@@ -1,0 +1,4 @@
+-- Flyway Migration: V2__Init_Stock_Data.sql
+-- Intentionally no-op.
+-- Do not put demo/seed data in shared migration scripts.
+-- For dev/test sample data, use scripts under db/seed and execute explicitly.

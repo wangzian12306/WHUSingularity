@@ -1,0 +1,2 @@
+-- Phase 0 baseline migration for singularity-product
+-- Keep a valid first version so Flyway can initialize cleanly before business tables are added in Phase 1.

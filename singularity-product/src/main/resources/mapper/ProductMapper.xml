@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.lubover.singularity.product.mapper.ProductMapper">
+
+        <resultMap id="ProductResultMap" type="com.lubover.singularity.product.entity.Product">
+                <id column="id" property="id"/>
+                <result column="product_id" property="productId"/>
+                <result column="name" property="name"/>
+                <result column="subtitle" property="subtitle"/>
+                <result column="main_image" property="mainImage"/>
+                <result column="category" property="category"/>
+                <result column="tags" property="tags"/>
+                <result column="status" property="status"/>
+                <result column="price" property="price"/>
+                <result column="version" property="version"/>
+                <result column="is_deleted" property="isDeleted"/>
+                <result column="create_time" property="createTime"/>
+                <result column="update_time" property="updateTime"/>
+        </resultMap>
+
+        <insert id="insert" parameterType="com.lubover.singularity.product.entity.Product" useGeneratedKeys="true" keyProperty="id">
+                INSERT INTO `product` (
+                        product_id, name, subtitle, main_image, category, tags,
+                        status, price, version, is_deleted, create_time, update_time
+                ) VALUES (
+                        #{productId}, #{name}, #{subtitle}, #{mainImage}, #{category}, #{tags},
+                        #{status}, #{price}, #{version}, #{isDeleted},
+                        COALESCE(#{createTime}, NOW()), COALESCE(#{updateTime}, NOW())
+                )
+        </insert>
+
+        <select id="selectByProductId" resultMap="ProductResultMap">
+                SELECT id, product_id, name, subtitle, main_image, category, tags,
+                           status, price, version, is_deleted, create_time, update_time
+                FROM `product`
+                WHERE product_id = #{productId}
+                  AND is_deleted = 0
+                LIMIT 1
+        </select>
+
+        <select id="selectList" resultMap="ProductResultMap">
+                SELECT id, product_id, name, subtitle, main_image, category, tags,
+                           status, price, version, is_deleted, create_time, update_time
+                FROM `product`
+                <where>
+                        is_deleted = 0
+                        <if test="status != null">
+                                AND status = #{status}
+                        </if>
+                        <if test="category != null and category != ''">
+                                AND category = #{category}
+                        </if>
+                        <if test="keyword != null and keyword != ''">
+                                AND (name LIKE CONCAT('%', #{keyword}, '%') OR product_id LIKE CONCAT('%', #{keyword}, '%'))
+                        </if>
+                </where>
+                ORDER BY update_time DESC
+                LIMIT #{limit} OFFSET #{offset}
+        </select>
+
+        <select id="countList" resultType="long">
+                SELECT COUNT(1)
+                FROM `product`
+                <where>
+                        is_deleted = 0
+                        <if test="status != null">
+                                AND status = #{status}
+                        </if>
+                        <if test="category != null and category != ''">
+                                AND category = #{category}
+                        </if>
+                        <if test="keyword != null and keyword != ''">
+                                AND (name LIKE CONCAT('%', #{keyword}, '%') OR product_id LIKE CONCAT('%', #{keyword}, '%'))
+                        </if>
+                </where>
+        </select>
+
+        <update id="updateByProductId" parameterType="com.lubover.singularity.product.entity.Product">
+                UPDATE `product`
+                <set>
+                        <if test="name != null">name = #{name},</if>
+                        <if test="subtitle != null">subtitle = #{subtitle},</if>
+                        <if test="mainImage != null">main_image = #{mainImage},</if>
+                        <if test="category != null">category = #{category},</if>
+                        <if test="tags != null">tags = #{tags},</if>
+                        <if test="status != null">status = #{status},</if>
+                        <if test="price != null">price = #{price},</if>
+                        version = version + 1,
+                        update_time = NOW()
+                </set>
+                WHERE product_id = #{productId}
+                  AND is_deleted = 0
+        </update>
+
+        <update id="updateStatusByProductId">
+                UPDATE `product`
+                SET status = #{status},
+                    version = version + 1,
+                    update_time = NOW()
+                WHERE product_id = #{productId}
+                  AND is_deleted = 0
+        </update>
+
+        <update id="markDeleted">
+                UPDATE `product`
+                SET is_deleted = 1,
+                        version = version + 1,
+                        update_time = NOW()
+                WHERE product_id = #{productId}
+                  AND is_deleted = 0
+        </update>
+
+</mapper>
