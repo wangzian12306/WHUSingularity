@@ -1,19 +1,20 @@
 package com.lubover.singularity.order.registry;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.lubover.singularity.api.Registry;
 import com.lubover.singularity.api.Slot;
 import com.lubover.singularity.order.config.SlotProperties;
 import com.lubover.singularity.order.slot.StockSlot;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 @Component
 public class SlotRegistry implements Registry {
@@ -75,8 +76,15 @@ public class SlotRegistry implements Registry {
             emptyCache.invalidate(slotId);
             log.info("slot [{}] added dynamically: redisKey={}, productId={}", slotId, redisKey, productId);
         } else {
-            emptyCache.invalidate(slotId);
-            log.info("slot [{}] already exists, cleared empty mark", slotId);
+            for (int i = 0; i < slotList.size(); i++) {
+                StockSlot slot = slotList.get(i);
+                if (slot.getId().equals(slotId)) {
+                    slotList.set(i, new StockSlot(slotId, redisKey, productId));
+                    emptyCache.invalidate(slotId);
+                    log.info("slot [{}] updated: redisKey={}, productId={}", slotId, redisKey, productId);
+                    break;
+                }
+            }
         }
     }
 
@@ -86,5 +94,9 @@ public class SlotRegistry implements Registry {
 
     public Boolean getEmptyStatus(String slotId) {
         return emptyCache.getIfPresent(slotId);
+    }
+
+    public boolean hasSlot(String slotId) {
+        return slotList.stream().anyMatch(s -> s.getId().equals(slotId));
     }
 }

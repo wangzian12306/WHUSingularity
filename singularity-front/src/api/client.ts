@@ -13,7 +13,7 @@ api.interceptors.request.use((config) => {
   if (isPublicApi) {
     return config
   }
-  const merchantPaths = ['/api/merchant', '/api/product', '/api/inventory']
+  const merchantPaths = ['/api/merchant', '/api/merchant-product', '/api/inventory']
   const isMerchantApi = merchantPaths.some(p => url.startsWith(p))
   const token = isMerchantApi
     ? localStorage.getItem('merchantAccessToken')
@@ -29,7 +29,7 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url = error.config?.url ?? ''
-      const merchantPaths = ['/api/merchant', '/api/product', '/api/inventory']
+      const merchantPaths = ['/api/merchant', '/api/merchant-product', '/api/inventory']
       const isMerchantApi = merchantPaths.some(p => url.startsWith(p))
       if (isMerchantApi) {
         localStorage.removeItem('merchantAccessToken')

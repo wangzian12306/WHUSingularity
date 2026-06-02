@@ -25,6 +25,12 @@ spring:
           uri: lb://singularity-merchant
           predicates:
             - Path=/api/merchant/**
+        - id: merchant-product-route
+          uri: lb://singularity-merchant
+          predicates:
+            - Path=/api/merchant-product,/api/merchant-product/**
+          filters:
+            - RewritePath=/api/merchant-product(?<segment>/?.*), /api/product$\{segment}
         - id: merchant-inventory-route
           uri: lb://singularity-merchant
           predicates:
