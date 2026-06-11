@@ -51,4 +51,3 @@ deploy/jmeter/
 ### k6 / order stress tests（压测产出不入库，脚本与 k6 用例纳入版本库）###
 tests/order-stress-test/k6-out/
 /summary.json
-docs/submit

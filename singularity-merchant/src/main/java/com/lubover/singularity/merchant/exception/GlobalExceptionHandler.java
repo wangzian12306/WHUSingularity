@@ -23,29 +23,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ApiResponse<Void>> handleFeignException(FeignException exception) {
         log.error("Feign call failed: status={}, message={}", exception.status(), exception.getMessage());
-        int status = exception.status();
-        if (status >= 400 && status < 500) {
-            ApiResponse<?> upstream = parseUpstreamResponse(exception.contentUTF8());
-            if (upstream != null && upstream.getError() != null) {
-                return ResponseEntity.status(status)
-                        .body(ApiResponse.failure(upstream.getError().getCode(), upstream.getError().getMessage()));
-            }
-            return ResponseEntity.status(status)
-                    .body(ApiResponse.failure(ErrorCode.REQ_INVALID_PARAM.getCode(), "upstream request rejected"));
-        }
         return ResponseEntity.status(503)
                 .body(ApiResponse.failure("SERVICE_UNAVAILABLE", "Product service is temporarily unavailable"));
-    }
-
-    private ApiResponse<?> parseUpstreamResponse(String body) {
-        if (body == null || body.isBlank()) {
-            return null;
-        }
-        try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(body, ApiResponse.class);
-        } catch (Exception ignored) {
-            return null;
-        }
     }
 
     @ExceptionHandler(Exception.class)

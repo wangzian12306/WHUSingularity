@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { MerchantView } from '../api/types'
 import { merchantApi } from '../api/merchant'
-import { MERCHANT_AUTH_EXPIRED_EVENT } from '../api/client'
 
 interface MerchantAuthContextType {
   merchant: MerchantView | null
@@ -35,15 +34,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { restore() }, [restore])
 
-  useEffect(() => {
-    const onExpired = () => setMerchant(null)
-    window.addEventListener(MERCHANT_AUTH_EXPIRED_EVENT, onExpired)
-    return () => window.removeEventListener(MERCHANT_AUTH_EXPIRED_EVENT, onExpired)
-  }, [])
-
   const login = useCallback(async (username: string, password: string) => {
-    localStorage.removeItem('merchantAccessToken')
-    localStorage.removeItem('merchantExpiresIn')
     const res = await merchantApi.login({ username, password })
     if (!res.success || !res.data) throw new Error(res.error?.message ?? 'Login failed')
     localStorage.setItem('merchantAccessToken', res.data.accessToken)
