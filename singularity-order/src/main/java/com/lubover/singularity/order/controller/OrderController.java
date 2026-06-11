@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,14 +29,18 @@ import com.lubover.singularity.order.service.OrderService;
 @RequestMapping("/api/order")
 public class OrderController {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
+
     private final OrderService orderService;
     private final OrderMapper orderMapper;
     private final SlotRegistry slotRegistry;
+    private final StringRedisTemplate stringRedisTemplate;
 
-    public OrderController(OrderService orderService, OrderMapper orderMapper, SlotRegistry slotRegistry) {
+    public OrderController(OrderService orderService, OrderMapper orderMapper, SlotRegistry slotRegistry, StringRedisTemplate stringRedisTemplate) {
         this.orderService = orderService;
         this.orderMapper = orderMapper;
         this.slotRegistry = slotRegistry;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 
     @PostMapping("/snag")
@@ -78,12 +85,50 @@ public class OrderController {
         if (status == null || status.isBlank()) {
             return failure("status is required");
         }
-        int rows = orderMapper.updateStatus(orderId, status);
-        if (rows <= 0) {
+
+        Order order = orderMapper.selectByOrderId(orderId);
+        if (order == null) {
             return failure("order not found");
         }
-        Order order = orderMapper.selectByOrderId(orderId);
-        return success(order);
+
+        // 只有CREATED状态的订单可以取消
+        if ("CANCELLED".equals(status) && !"CREATED".equals(order.getStatus())) {
+            return failure("只有处理中的订单可以取消");
+        }
+
+        int rows = orderMapper.updateStatus(orderId, status);
+        if (rows <= 0) {
+            return failure("更新订单状态失败");
+        }
+
+        // 取消订单时释放库存
+        if ("CANCELLED".equals(status) && "CREATED".equals(order.getStatus())) {
+            releaseStock(order);
+        }
+
+        Order updated = orderMapper.selectByOrderId(orderId);
+        return success(updated);
+    }
+
+    /**
+     * 取消订单时恢复Redis库存并清除slot售罄标记
+     */
+    private void releaseStock(Order order) {
+        String slotId = order.getSlotId();
+        String productId = order.getProductId();
+        if (slotId == null || slotId.isBlank()) {
+            return;
+        }
+        String redisStockKey = slotRegistry.getRedisStockKey(slotId);
+        try {
+            Long remaining = stringRedisTemplate.opsForValue().increment(redisStockKey);
+            if (remaining != null && remaining > 0) {
+                slotRegistry.clearEmpty(slotId);
+            }
+            log.info("库存已释放: orderId={}, slotId={}, productId={}, remaining={}", order.getOrderId(), slotId, productId, remaining);
+        } catch (Exception e) {
+            log.error("释放库存失败: orderId={}, slotId={}", order.getOrderId(), slotId, e);
+        }
     }
 
     @PostMapping("/{orderId}/pay")

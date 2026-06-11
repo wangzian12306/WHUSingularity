@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Table, Form, Input, Select, Button, Space, Tag, message } from 'antd'
+import { Table, Form, Input, Select, Button, Space, Tag, Popconfirm, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { orderApi } from '../../api/order'
 import type { Order } from '../../api/types'
@@ -68,16 +68,36 @@ export default function AdminOrderList() {
     })
   }
 
+  const handleCancelOrder = async (orderId: string) => {
+    try {
+      const res = await orderApi.updateStatus(orderId, 'CANCELLED')
+      if (res.success) {
+        message.success('订单已取消，库存已释放')
+        const values = form.getFieldsValue()
+        fetchOrders({
+          userId: values.userId,
+          status: values.status,
+          page,
+          size: pageSize,
+        })
+      } else {
+        message.error(res.error?.message ?? '取消订单失败')
+      }
+    } catch {
+      message.error('请求失败，请稍后重试')
+    }
+  }
+
   const statusLabel = (v: string) => {
-    if (v === 'PAID') return <Tag color="success">成功</Tag>
-    if (v === 'CANCELLED') return <Tag color="error">失败</Tag>
+    if (v === 'PAID') return <Tag color="success">已支付</Tag>
+    if (v === 'CANCELLED') return <Tag color="error">已取消</Tag>
     return <Tag color="processing">处理中</Tag>
   }
 
   const columns: ColumnsType<Order> = [
     { title: '订单号', dataIndex: 'orderId', render: (v: string) => v.slice(0, 12) + '...' },
-    { title: '用户 ID', dataIndex: 'userId', width: 120 },
-    { title: '商品 ID', dataIndex: 'slotId' },
+    { title: '用户ID', dataIndex: 'userId', width: 120 },
+    { title: '商品ID', dataIndex: 'productId', render: (v: string) => v ?? '-' },
     {
       title: '状态',
       dataIndex: 'status',
@@ -85,19 +105,38 @@ export default function AdminOrderList() {
       render: statusLabel,
     },
     { title: '创建时间', dataIndex: 'createTime', width: 180 },
+    {
+      title: '操作',
+      width: 120,
+      render: (_, record) => {
+        if (record.status !== 'CREATED') return null
+        return (
+          <Popconfirm
+            title="取消订单"
+            description="确定要取消此订单吗？取消后库存将释放。"
+            onConfirm={() => handleCancelOrder(record.orderId)}
+            okText="确定取消"
+            cancelText="返回"
+            okButtonProps={{ danger: true }}
+          >
+            <Button type="link" size="small" danger>取消订单</Button>
+          </Popconfirm>
+        )
+      },
+    },
   ]
 
   return (
     <>
       <Form form={form} layout="inline" style={{ marginBottom: 16 }}>
-        <Form.Item name="userId" label="用户 ID">
-          <Input placeholder="输入用户 ID" allowClear style={{ width: 160 }} />
+        <Form.Item name="userId" label="用户ID">
+          <Input placeholder="输入用户ID" allowClear style={{ width: 160 }} />
         </Form.Item>
         <Form.Item name="status" label="状态">
           <Select placeholder="选择状态" allowClear style={{ width: 140 }} options={[
             { value: 'CREATED', label: '处理中' },
-            { value: 'PAID', label: '成功' },
-            { value: 'CANCELLED', label: '失败' },
+            { value: 'PAID', label: '已支付' },
+            { value: 'CANCELLED', label: '已取消' },
           ]} />
         </Form.Item>
         <Form.Item>

@@ -18,6 +18,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class MerchantServiceImpl implements MerchantService {
 
@@ -180,6 +183,13 @@ public class MerchantServiceImpl implements MerchantService {
         }
         merchant.setBalance(currentBalance.subtract(amount));
         merchantMapper.update(merchant);
+    }
+
+    @Override
+    public List<MerchantView> listAll() {
+        return merchantMapper.selectAll().stream()
+                .map(this::convertToView)
+                .collect(Collectors.toList());
     }
 
     private MerchantView convertToView(Merchant merchant) {

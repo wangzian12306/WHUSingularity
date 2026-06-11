@@ -51,4 +51,8 @@
         SELECT * FROM merchant WHERE username = #{username}
     </select>
 
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM merchant ORDER BY id ASC
+    </select>
+
 </mapper>

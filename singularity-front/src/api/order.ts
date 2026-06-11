@@ -17,4 +17,7 @@ export const orderApi = {
 
   pay: (orderId: string, userId: string, userType?: string) =>
     request<void>({ method: 'POST', url: `/api/order/${orderId}/pay`, data: { userId, userType } }),
+
+  updateStatus: (orderId: string, status: string) =>
+    request<void>({ method: 'PUT', url: `/api/order/${orderId}/status`, data: { status } }),
 }

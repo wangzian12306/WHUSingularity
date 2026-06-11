@@ -4,6 +4,8 @@ import com.lubover.singularity.merchant.entity.Merchant;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface MerchantMapper {
 
@@ -16,4 +18,6 @@ public interface MerchantMapper {
     Merchant selectById(@Param("id") Long id);
 
     Merchant selectByUsername(@Param("username") String username);
+
+    List<Merchant> selectAll();
 }

@@ -9,6 +9,7 @@ import com.lubover.singularity.merchant.service.MerchantService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -71,6 +72,12 @@ public class MerchantController {
     public ApiResponse<MerchantView> getMerchant(@PathVariable("id") Long id) {
         MerchantView view = merchantService.getMerchantViewById(id);
         return ApiResponse.success(view);
+    }
+
+    @GetMapping("/list")
+    public ApiResponse<List<MerchantView>> listMerchants() {
+        List<MerchantView> list = merchantService.listAll();
+        return ApiResponse.success(list);
     }
 
     @PostMapping("/recharge")

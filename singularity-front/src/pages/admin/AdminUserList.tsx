@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Popconfirm, Space, message } from 'antd'
+import { Table, Tag, Button, Modal, Form, Input, InputNumber, Select, Popconfirm, Space, Tabs, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { userApi } from '../../api/user'
-import type { UserDetail } from '../../api/types'
+import { merchantApi } from '../../api/merchant'
+import type { UserDetail, MerchantView } from '../../api/types'
 
 export default function AdminUserList() {
+  // 用户
   const [users, setUsers] = useState<UserDetail[]>([])
   const [loading, setLoading] = useState(true)
   const [editUser, setEditUser] = useState<UserDetail | null>(null)
   const [editing, setEditing] = useState(false)
   const [form] = Form.useForm()
+
+  // 商户
+  const [merchants, setMerchants] = useState<MerchantView[]>([])
+  const [merchantLoading, setMerchantLoading] = useState(true)
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -24,7 +30,20 @@ export default function AdminUserList() {
     }
   }
 
-  useEffect(() => { fetchUsers() }, [])
+  const fetchMerchants = async () => {
+    setMerchantLoading(true)
+    try {
+      const res = await merchantApi.list()
+      if (res.success && res.data) setMerchants(res.data)
+      else message.error(res.error?.message ?? '获取商户列表失败')
+    } catch {
+      message.error('请求失败，请稍后重试')
+    } finally {
+      setMerchantLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchUsers(); fetchMerchants() }, [])
 
   const handleEdit = async () => {
     if (!editUser) return
@@ -60,7 +79,7 @@ export default function AdminUserList() {
     }
   }
 
-  const columns: ColumnsType<UserDetail> = [
+  const userColumns: ColumnsType<UserDetail> = [
     { title: 'ID', dataIndex: 'id', width: 80 },
     { title: '用户名', dataIndex: 'username' },
     { title: '昵称', dataIndex: 'nickname', render: (v: string | null) => v ?? '-' },
@@ -100,14 +119,56 @@ export default function AdminUserList() {
     },
   ]
 
+  const merchantColumns: ColumnsType<MerchantView> = [
+    { title: 'ID', dataIndex: 'id', width: 80 },
+    { title: '用户名', dataIndex: 'username' },
+    { title: '店铺名称', dataIndex: 'shopName' },
+    { title: '联系人', dataIndex: 'contactName', render: (v: string | null) => v ?? '-' },
+    { title: '联系电话', dataIndex: 'contactPhone', render: (v: string | null) => v ?? '-' },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 100,
+      render: (status: number) => (
+        <Tag color={status === 1 ? 'green' : 'red'}>{status === 1 ? '正常' : '禁用'}</Tag>
+      ),
+    },
+    { title: '余额', dataIndex: 'balance', width: 120, render: (v: number) => (v ?? 0).toFixed(2) },
+    { title: '创建时间', dataIndex: 'createTime', width: 180 },
+  ]
+
   return (
     <>
-      <Table
-        rowKey="id"
-        columns={columns}
-        dataSource={users}
-        loading={loading}
-        pagination={{ pageSize: 20 }}
+      <Tabs
+        defaultActiveKey="users"
+        items={[
+          {
+            key: 'users',
+            label: `用户 (${users.length})`,
+            children: (
+              <Table
+                rowKey="id"
+                columns={userColumns}
+                dataSource={users}
+                loading={loading}
+                pagination={{ pageSize: 20 }}
+              />
+            ),
+          },
+          {
+            key: 'merchants',
+            label: `商户 (${merchants.length})`,
+            children: (
+              <Table
+                rowKey="id"
+                columns={merchantColumns}
+                dataSource={merchants}
+                loading={merchantLoading}
+                pagination={{ pageSize: 20 }}
+              />
+            ),
+          },
+        ]}
       />
       <Modal
         title="编辑用户"
