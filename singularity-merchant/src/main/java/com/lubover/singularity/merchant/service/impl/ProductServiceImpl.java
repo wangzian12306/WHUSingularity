@@ -65,6 +65,8 @@ public class ProductServiceImpl implements ProductService {
 
         try {
             redisTemplate.opsForValue().set(redisKey, String.valueOf(totalQuantity));
+            redisTemplate.opsForHash().put("slot-meta:" + slotId, "productId", productId);
+            redisTemplate.opsForHash().put("slot-meta:" + slotId, "redisKey", redisKey);
             System.out.println("Redis stock bucket initialized: " + redisKey + " = " + totalQuantity);
         } catch (Exception e) {
             System.err.println("Failed to init Redis stock bucket: " + redisKey + ", error: " + e.getMessage());

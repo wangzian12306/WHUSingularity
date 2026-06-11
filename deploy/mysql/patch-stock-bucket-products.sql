@@ -1,4 +1,4 @@
--- 将秒杀槽位对应商品在 singularity_stock.stock 中拉大库存（可与 deploy/refill-stock-buckets.* 配合）
+-- 将秒杀槽位对应商品在 singularity_stock.stock 中拉大库存（可与 tests/order-stress-test/refill-stock-buckets.* 配合）
 -- 执行：docker exec -i singularity-mysql mysql -uroot -proot < deploy/mysql/patch-stock-bucket-products.sql
 
 USE singularity_stock;

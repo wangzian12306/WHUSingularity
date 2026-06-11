@@ -146,13 +146,18 @@ export default function UserCenter() {
           <Card title="用户信息" loading={loadingUser}>
             <Space direction="vertical">
               <Text>用户名: {userDetail?.username ?? user?.username}</Text>
-              <Text>昵称: {userDetail?.nickname ?? '-'}</Text>
+              {(userDetail?.nickname ?? user?.nickname) ? (
+                <Text>昵称: {userDetail?.nickname ?? user?.nickname}</Text>
+              ) : null}
               <Text>
                 角色:{' '}
                 <Tag color={userDetail?.role === 'admin' ? 'red' : 'blue'}>
-                  {userDetail?.role ?? user?.role}
+                  {userDetail?.role === 'admin' ? '管理员' : '普通用户'}
                 </Tag>
               </Text>
+              {userDetail?.createTime ? (
+                <Text>注册时间: {userDetail.createTime}</Text>
+              ) : null}
             </Space>
           </Card>
         </Col>

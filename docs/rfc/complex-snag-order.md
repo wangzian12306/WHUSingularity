@@ -56,6 +56,115 @@ MQ: ~5ms（事务消息同步等待）
 │ CPU/IO 比 ≈ 3-5 ← CPU 密集型 │
 └─────────────────────────────────────────────────────────────────┘
 
+---
+
+当前订单风控拦截器实现：FraudDetectionInterceptor
+
+`singularity-order` 当前已经接入 `FraudDetectionInterceptor`，它是 `singularity-core` 分配链路中的一个 `Interceptor`，执行位置在：
+
+Registry 获取可用 slot → ShardPolicy 选择 slot → FraudDetectionInterceptor 风控识别 → handler 执行 Redis 扣库存与 RocketMQ 事务消息
+
+它只覆盖走 `Allocator.allocate(actor)` 的抢单入口。也就是说，标准 `snagOrder(actor)` 会经过风控；如果业务方法绕过 allocator、直接按 productId 选择 slot 并执行事务，则不会触发该拦截器。
+
+### 风控记录方式
+
+拦截器按 `actorId` 维护一个本地行为窗口，底层使用 Caffeine：
+
+- key：`actorId`
+- value：`BehaviorWindow`
+- 过期策略：访问后 `windowSeconds * 2` 秒过期
+- 最大容量：50000 个 actor 行为窗口
+
+每个 `BehaviorWindow` 记录四类状态：
+
+- `windowStartMs`：当前行为窗口的开始时间
+- `requestCount`：该 actor 在当前窗口内已经发起的抢单次数
+- `lastSlotId`：该 actor 上一次命中的 slot
+- `slotSwitchCount`：该 actor 在窗口内发生 slot 切换的次数
+
+每次请求进入风控后，系统会先取出当前 `actorId` 对应的窗口；如果不存在，则创建一个新的窗口。随后执行一次 `recordAndScore(now, slotId, featureVector)`：
+
+1. 如果当前时间已经超过窗口长度，则重置窗口开始时间、请求次数、slot 切换次数和上一次 slot。
+2. 请求次数 `requestCount + 1`。
+3. 如果 `lastSlotId` 不为空且不同于当前 `slotId`，说明该 actor 在短时间内切换了库存槽位，`slotSwitchCount + 1`。
+4. 更新 `lastSlotId = 当前 slotId`。
+5. 计算风险分。
+
+这个记录方式的重点是“以用户维度观察短时间行为”，而不是以订单维度或商品维度单点判断。它能识别的不是某一次请求是否异常，而是同一 actor 在极短时间内是否呈现出脚本化模式。
+
+### 行为指纹生成
+
+风控还会为每次请求生成一个行为特征向量。输入特征包括：
+
+- `id:actorId`：身份特征
+- `tw:actorId:timeBucket`：时间窗口行为特征
+- `sp:actorId:slotId`：槽位偏好特征
+- `cs:actorId:slotId:timeBucket`：跨槽位跳变特征
+
+其中 `timeBucket = nowMs / (windowSeconds * 1000)`，也就是按照配置的行为窗口长度分桶。每个特征会进行多轮 SHA-256：
+
+```text
+seed = "singularity-fraud-v2"
+input = feature
+repeat hashRounds times:
+    input = SHA256(seed + input)
+featureValue = firstByte(input) / 255.0
+```
+
+最终得到一个 4 维向量。当前实时拦截评分主要依赖频率和槽位跳变，特征向量用于保留行为指纹与制造可横向扩展的 CPU 型业务负载；后续如果需要增强识别能力，可以把这些向量接入更复杂的模型或审计系统。
+
+### 风险识别规则
+
+当前实时风险分由两部分组成：
+
+```text
+freqScore   = min(1.0, requestCount / maxRequestsPerWindow)
+switchScore = requestCount > 1
+              ? min(1.0, slotSwitchCount / (requestCount - 1))
+              : 0.0
+riskScore   = 0.55 * freqScore + 0.45 * switchScore
+```
+
+这表示系统主要识别两类脚本行为：
+
+- 高频请求：同一 actor 在短窗口内请求次数接近或超过阈值，说明它不像人工点击。
+- 槽位跳变：同一 actor 在短窗口内频繁命中不同 slot，说明它可能在遍历库存桶或使用脚本重试。
+
+风险等级按阈值划分：
+
+- `LOW`：`riskScore < 0.5`
+- `MEDIUM`：`0.5 <= riskScore < riskThreshold`
+- `HIGH`：`riskScore >= riskThreshold`
+
+默认配置下，`riskThreshold = 0.85`，`windowSeconds = 5`，`maxRequestsPerWindow = 100`，`hashRounds = 8`。
+
+### 拦截与放行流程
+
+风控识别完成后，会把结果写入 `Context`：
+
+- `fraud.riskScore`
+- `fraud.riskLevel`
+
+如果 `riskScore >= riskThreshold`，拦截器直接设置失败结果：
+
+```text
+风控拦截：行为异常，抢单被拒绝
+```
+
+并且不再调用 `context.next()`。这意味着请求不会进入后续 handler，也不会执行 Redis 原子减库存、RocketMQ 半消息发送、订单消息投递和 MySQL 异步落库。
+
+如果 `riskScore < riskThreshold`，拦截器调用 `context.next()` 放行。后续订单 handler 会从 `Context` 读取 `fraud.riskScore`，写入 `OrderMessage.riskScore`，随 `order-topic` 消息一起传播，便于后续消费端、日志或审计链路保留本次抢单的风险信息。
+
+### 设计价值
+
+这套做法有三个直接价值：
+
+1. 在热路径前置拦截明显异常的抢单行为，避免恶意请求继续消耗 Redis、MQ 和数据库链路资源。
+2. 用本地窗口记录用户短时间行为，识别脚本高频请求和跨 slot 遍历，而不是只做单请求静态校验。
+3. 通过多轮特征哈希引入真实 CPU 计算，使订单服务在高并发下能够形成可被 scaler 捕捉的 CPU 型负载；扩容新实例后，风控计算可以随实例数横向分摊。
+
+---
+
 关键：CPU 密集型操作的具体设计
 
 UserProfileInterceptor — 多维度资质评分（纯 CPU）

@@ -12,7 +12,7 @@
 
 ### 1.2 压测与可观测性
 
-- **`k6-snag-docker-internal-business.js`** + compose 服务 **`k6-order-load-business`** + `deploy/run-k6-order-load-business.cmd|.ps1`：除 HTTP 200 外校验 **`success === true`**，指标 **`snag_business_success`**。
+- **`k6-snag-docker-internal-business.js`** + compose 服务 **`k6-order-load-business`** + `tests/order-stress-test/run-k6-order-load-business.cmd|.ps1`：除 HTTP 200 外校验 **`success === true`**，指标 **`snag_business_success`**。
 - **Redis 无桶 / 业务全失败**：须 `refill-stock-buckets`；桶卖光且 `markEmpty` 后需 **重启 order** 才能再抢。
 - **RocketMQ**：`mqadmin topicStatus` / `consumerProgress`（如 `stock-order-consumer-group`）对照 `order-topic` 生产与消费；积压大时 **MySQL 压力高属预期**。
 
@@ -23,9 +23,9 @@
 | 模块 | 要点 |
 |------|------|
 | **`singularity-scaler`** | `ScalingService`、`DockerContainerInspector`、`PolicyEvaluator`、`ScalerProperties`、`MetricsScraper`、`DockerCommandExecutor`；删除 `PortAllocator`；`application.yml` 扩容相关项。 |
-| **`deploy/`** | `docker-compose.backend.yml`（多 order LB、k6、order 环境变量等）、`nginx-order-lb-main.conf`、`order-lb.conf`、`rebuild-stack.ps1`、`refill-stock-buckets.*`、`mysql/patch-stock-bucket-products.sql`、k6 business 启动脚本。 |
+| **`deploy/`** | `docker-compose.backend.yml`（多 order LB、k6、order 环境变量等）、`nginx-order-lb-main.conf`、`order-lb.conf`、`rebuild-stack.ps1`、`mysql/patch-stock-bucket-products.sql` 等。 |
 | **`singularity-stock`** | **`StockServiceImpl` / `StockMapper`（单条条件扣减）**；种子 SQL `V001__seed_stock_dev.sql` 等。 |
-| **`tests/order-stress-test/`** | `k6-snag-docker-internal-business.js` 及既有 `k6-snag-*.js`；compose 挂载该目录到 k6 `/scripts`。 |
+| **`tests/order-stress-test/`** | k6 脚本、`refill-stock-buckets.*`、压测编排 `.ps1/.sh/.cmd`；compose 挂载该目录到 k6 `/scripts`。 |
 | **其他** | 如 `api-integration-tests-python`、`singularity-front`、`docs/startup.md`、`dev-run.sh` 等小改。 |
 
 ## 3. 压测与架构结论（持续有效）

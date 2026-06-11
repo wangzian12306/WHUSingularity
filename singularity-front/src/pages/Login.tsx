@@ -9,14 +9,15 @@ const { Title } = Typography
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
-  const { login: userLogin } = useAuth()
-  const { login: merchantLogin } = useMerchantAuth()
+  const { login: userLogin, logout: userLogout } = useAuth()
+  const { login: merchantLogin, logout: merchantLogout } = useMerchantAuth()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('user')
 
   const onUserLogin = async (values: { username: string; password: string }) => {
     setLoading(true)
     try {
+      await merchantLogout()
       await userLogin(values.username, values.password)
       message.success('登录成功')
       navigate('/', { replace: true })
@@ -31,6 +32,7 @@ export default function LoginPage() {
   const onMerchantLogin = async (values: { username: string; password: string }) => {
     setLoading(true)
     try {
+      await userLogout()
       await merchantLogin(values.username, values.password)
       message.success('商户登录成功')
       navigate('/', { replace: true })

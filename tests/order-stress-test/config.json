@@ -1,0 +1,12 @@
+{
+  "order_config": {
+    "slot_count": 1,
+    "slot_size": 100
+  },
+  "client_count": 10,
+  "client_config": {
+    "order_addrs": ["http://localhost:8080", "http://localhost:8081"],
+    "duration_ms": 30,
+    "request_per_sec": 1000
+  }
+}
