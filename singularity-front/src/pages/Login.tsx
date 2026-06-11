@@ -33,6 +33,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await userLogout()
+      await merchantLogout()
       await merchantLogin(values.username, values.password)
       message.success('商户登录成功')
       navigate('/', { replace: true })

@@ -21,6 +21,8 @@ public class AuthFilter extends OncePerRequestFilter {
 
     private static final String AUTH_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String PATH_LOGIN = "/api/merchant/login";
+    private static final String PATH_REGISTER = "/api/merchant/register";
 
     @Autowired
     private JwtProvider jwtProvider;
@@ -30,6 +32,12 @@ public class AuthFilter extends OncePerRequestFilter {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return PATH_LOGIN.equals(path) || PATH_REGISTER.equals(path);
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
