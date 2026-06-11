@@ -25,6 +25,19 @@ mvn -pl singularity-user test    # 测试单个模块
 mvn test                         # 测试全部
 ```
 
+**前端**（`singularity-front/`，包管理器 pnpm）:
+```bash
+pnpm install                     # 安装依赖
+pnpm dev                          # 启动开发服务器
+pnpm build                        # 构建
+pnpm lint                         # ESLint 检查
+```
+
+**Python 集成测试**（服务需已运行）:
+```bash
+python -m unittest discover -s api-integration-tests-python/tests -p "test_*.py" -v
+```
+
 **启动顺序**: Nacos (8848) → user (8090) → stock (8082) → order (8081) → product (8087) → merchant (8091) → gateway (8080) → scaler (9090)
 
 **基础设施依赖**: MySQL 3306, Redis 6379, Nacos 8848, RocketMQ NameServer 9876 + Broker 10911
@@ -53,6 +66,14 @@ docker/                     — Docker 构建相关
 ```
 
 ### Core Framework (singularity-core)
+
+基础包路径: `com.lubover.singularity`
+
+- `api/` — 核心接口: Allocator, Actor, Slot, Interceptor, Registry, ShardPolicy, Context, Result
+- `pipeline/` — Pipeline 执行框架: Operation, PipelineHandler, ExecutionContext
+- `pipeline/impl/` — Pipeline 默认实现
+- `pipeline/read/` — 读操作 pipeline
+- `pipeline/interceptor/` — 内置拦截器: ReadRateLimitInterceptor, ReadThroughCacheInterceptor, CacheStampedeGuardInterceptor, ReadRoutingInterceptor, MetricsTraceInterceptor
 
 `Allocator.allocate(Actor)` 的内部流程：
 1. Registry 获取可用 slot 列表
@@ -94,6 +115,24 @@ docker/                     — Docker 构建相关
 ### API Pattern
 
 统一 JSON 响应格式：成功为 `{ "success": true, "data": ... }`，失败为 `{ "success": false, "message": "..." }`。公共端点：register、login；其余需 `Authorization: Bearer <JWT>`。
+
+### Service Package Convention
+
+各服务统一基础包 `com.lubover.singularity.<service>`，标准子包：
+- `controller/` — REST 端点
+- `service/` + `service/impl/` — 业务逻辑
+- `dto/` — 数据传输对象
+- `entity/` — 数据库实体
+- `mapper/` — MyBatis mapper
+- `config/` — 配置类
+
+特殊子包（按需）: `auth/`（JWT 逻辑）、`feign/`（OpenFeign 客户端）、`listener/` 或 `consumer/`（MQ 消费者）、`interceptor/`（core 拦截器实现）、`registry/` + `slot/` + `shard/`（core 框架集成，主要在 order 服务）、`cache/`（缓存策略，主要在 product 服务）。
+
+### Database Migrations
+
+- **stock / product**: Flyway，迁移脚本在 `src/main/resources/db/migration/`
+- **user / merchant**: 手动 schema，`src/main/resources/schema.sql`（Spring Boot 自动初始化）
+- **部署级脚本**: `deploy/mysql/init/`（建库建表）、`deploy/mysql/patch/`（补丁）
 
 ## Workflow
 
