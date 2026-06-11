@@ -25,4 +25,7 @@ export const merchantApi = {
 
   getMerchant: (id: number) =>
     request<MerchantView>({ method: 'GET', url: `/api/merchant/${id}` }),
+
+  recharge: (amount: number) =>
+    request<MerchantView>({ method: 'POST', url: '/api/merchant/recharge', data: { amount } }),
 }

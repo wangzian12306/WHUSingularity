@@ -17,6 +17,7 @@ import AdminMonitorPanel from './pages/admin/AdminMonitorPanel'
 import WebMCPDemo from './pages/WebMCPDemo'
 import MerchantProductList from './pages/merchant/MerchantProductList'
 import MerchantCenter from './pages/merchant/MerchantCenter'
+import MerchantOrders from './pages/merchant/MerchantOrders'
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
                 <Route path="/webmcp-demo" element={<WebMCPDemo />} />
                 <Route path="/merchant/products" element={<MerchantProductList />} />
                 <Route path="/merchant/center" element={<MerchantCenter />} />
+                <Route path="/merchant/orders" element={<MerchantOrders />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

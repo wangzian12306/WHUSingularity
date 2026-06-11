@@ -13,6 +13,7 @@ public class MerchantView {
     private String description;
     private Integer status;
     private String avatar;
+    private java.math.BigDecimal balance;
     private LocalDateTime createTime;
 
     public Long getId() {
@@ -93,5 +94,13 @@ public class MerchantView {
 
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
+    }
+
+    public java.math.BigDecimal getBalance() {
+        return balance;
+    }
+
+    public void setBalance(java.math.BigDecimal balance) {
+        this.balance = balance;
     }
 }

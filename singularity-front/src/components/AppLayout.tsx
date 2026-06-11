@@ -30,6 +30,7 @@ export default function AppLayout() {
 
   const merchantItems = [
     { key: 'products', label: '商品管理', onClick: () => navigate('/merchant/products') },
+    { key: 'orders', label: '销售订单', onClick: () => navigate('/merchant/orders') },
     { key: 'center', label: '商户中心', onClick: () => navigate('/merchant/center') },
   ]
 

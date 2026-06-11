@@ -93,7 +93,8 @@ public class OrderController {
         if (userId == null || userId.isBlank()) {
             return failure("userId is required");
         }
-        Result result = orderService.payOrder(orderId, userId);
+        String userType = request.get("userType") == null ? null : String.valueOf(request.get("userType"));
+        Result result = orderService.payOrder(orderId, userId, userType);
         if (result.isSuccess()) {
             return success(null);
         }
@@ -119,6 +120,35 @@ public class OrderController {
         int offset = page * size;
         List<Order> content = orderMapper.selectList(userId, filterStatus, offset, size);
         long totalElements = orderMapper.countList(userId, filterStatus);
+        long totalPages = totalElements == 0 ? 0 : (totalElements + size - 1) / size;
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("content", content);
+        data.put("totalElements", totalElements);
+        data.put("totalPages", totalPages);
+        data.put("page", page);
+        data.put("size", size);
+        return success(data);
+    }
+
+    @GetMapping("/list-by-products")
+    public Map<String, Object> listOrdersByProducts(
+            @RequestParam(value = "productIds") List<String> productIds,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+        if (size < 1) {
+            size = 10;
+        }
+        if (page < 0) {
+            page = 0;
+        }
+
+        String filterStatus = (status == null || status.isBlank()) ? null : status;
+
+        int offset = page * size;
+        List<Order> content = orderMapper.selectByProductIds(productIds, filterStatus, offset, size);
+        long totalElements = orderMapper.countByProductIds(productIds, filterStatus);
         long totalPages = totalElements == 0 ? 0 : (totalElements + size - 1) / size;
 
         Map<String, Object> data = new HashMap<>();

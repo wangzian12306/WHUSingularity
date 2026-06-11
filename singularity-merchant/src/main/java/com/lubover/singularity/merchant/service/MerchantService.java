@@ -23,4 +23,10 @@ public interface MerchantService {
     Merchant updateMerchant(Merchant merchant);
 
     void updateMerchantStatus(Long id, Integer status);
+
+    MerchantView recharge(java.math.BigDecimal amount);
+
+    void addBalance(Long merchantId, java.math.BigDecimal amount);
+
+    void deductBalance(Long merchantId, java.math.BigDecimal amount);
 }

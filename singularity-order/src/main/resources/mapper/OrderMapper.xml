@@ -59,4 +59,38 @@
         </where>
     </select>
 
+    <select id="selectByProductIds" resultMap="BaseResultMap">
+        SELECT order_id, user_id, slot_id, product_id, status, create_time, update_time
+        FROM `order`
+        <where>
+            <if test="productIds != null and productIds.size() > 0">
+                AND product_id IN
+                <foreach collection="productIds" item="pid" open="(" separator="," close=")">
+                    #{pid}
+                </foreach>
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByProductIds" resultType="long">
+        SELECT COUNT(*)
+        FROM `order`
+        <where>
+            <if test="productIds != null and productIds.size() > 0">
+                AND product_id IN
+                <foreach collection="productIds" item="pid" open="(" separator="," close=")">
+                    #{pid}
+                </foreach>
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
 </mapper>

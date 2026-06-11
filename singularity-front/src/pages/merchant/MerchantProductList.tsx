@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Button,
   Card,
@@ -24,6 +24,9 @@ export default function MerchantProductList() {
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ProductView | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [statusLoading, setStatusLoading] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [form] = Form.useForm<CreateProductRequest>()
 
   const fetchProducts = async () => {
@@ -67,6 +70,8 @@ export default function MerchantProductList() {
   }
 
   const handleSubmit = async (values: CreateProductRequest) => {
+    if (submitting) return
+    setSubmitting(true)
     try {
       const res = editingProduct
         ? await productApi.update(editingProduct.productId, values as UpdateProductRequest)
@@ -80,10 +85,14 @@ export default function MerchantProductList() {
       }
     } catch {
       message.error('操作失败')
+    } finally {
+      setSubmitting(false)
     }
   }
 
   const handleDelete = async (productId: string) => {
+    if (deleting) return
+    setDeleting(productId)
     try {
       const res = await productApi.delete(productId)
       if (res.success) {
@@ -94,10 +103,14 @@ export default function MerchantProductList() {
       }
     } catch {
       message.error('删除失败')
+    } finally {
+      setDeleting(null)
     }
   }
 
   const handleStatus = async (productId: string, status: number) => {
+    if (statusLoading) return
+    setStatusLoading(productId)
     try {
       const res = await productApi.updateStatus(productId, status)
       if (res.success) {
@@ -108,6 +121,8 @@ export default function MerchantProductList() {
       }
     } catch {
       message.error('更新失败')
+    } finally {
+      setStatusLoading(null)
     }
   }
 
@@ -145,11 +160,11 @@ export default function MerchantProductList() {
             编辑
           </Button>
           {record.merchantStatus === 1 ? (
-            <Button type="link" size="small" onClick={() => handleStatus(record.productId, 0)}>
+            <Button type="link" size="small" loading={statusLoading === record.productId} onClick={() => handleStatus(record.productId, 0)}>
               下架
             </Button>
           ) : (
-            <Button type="link" size="small" onClick={() => handleStatus(record.productId, 1)}>
+            <Button type="link" size="small" loading={statusLoading === record.productId} onClick={() => handleStatus(record.productId, 1)}>
               上架
             </Button>
           )}
@@ -159,7 +174,7 @@ export default function MerchantProductList() {
             okText="确定"
             cancelText="取消"
           >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} loading={deleting === record.productId}>
               删除
             </Button>
           </Popconfirm>
@@ -221,15 +236,18 @@ export default function MerchantProductList() {
           <Form.Item
             name="totalQuantity"
             label={editingProduct ? '库存数量（修改将覆盖原有库存）' : '库存数量'}
+            rules={editingProduct ? [] : [{ required: true, message: '请输入库存数量' }]}
           >
             <InputNumber min={0} style={{ width: '100%' }} placeholder="库存数量" />
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={submitting}>
                 {editingProduct ? '更新' : '创建'}
               </Button>
-              <Button onClick={() => setModalVisible(false)}>取消</Button>
+              <Button onClick={() => setModalVisible(false)} disabled={submitting}>
+                取消
+              </Button>
             </Space>
           </Form.Item>
         </Form>

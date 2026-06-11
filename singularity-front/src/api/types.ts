@@ -139,6 +139,7 @@ export interface MerchantView {
   description: string | null
   status: number
   avatar: string | null
+  balance: number
   createTime: string
 }
 

@@ -26,4 +26,6 @@ public interface OrderService {
      * @return payment result
      */
     Result payOrder(String orderId, String userId);
+
+    Result payOrder(String orderId, String userId, String userType);
 }

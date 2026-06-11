@@ -1,17 +1,18 @@
 package com.lubover.singularity.order.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.lubover.singularity.api.*;
-import com.lubover.singularity.api.impl.DefaultAllocator;
-import com.lubover.singularity.order.dto.OrderMessage;
-import com.lubover.singularity.order.entity.Order;
-import com.lubover.singularity.order.feign.UserClient;
-import com.lubover.singularity.order.mapper.OrderMapper;
-import com.lubover.singularity.order.registry.SlotRegistry;
-import com.lubover.singularity.order.service.OrderService;
-import com.lubover.singularity.order.slot.StockSlot;
-import com.lubover.singularity.order.tx.OrderLocalTransaction;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.rocketmq.client.impl.producer.DefaultMQProducerImpl;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.client.producer.LocalTransactionState;
@@ -27,18 +28,25 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.lubover.singularity.api.Actor;
+import com.lubover.singularity.api.Allocator;
+import com.lubover.singularity.api.Interceptor;
+import com.lubover.singularity.api.Registry;
+import com.lubover.singularity.api.Result;
+import com.lubover.singularity.api.ShardPolicy;
+import com.lubover.singularity.api.Slot;
+import com.lubover.singularity.api.impl.DefaultAllocator;
+import com.lubover.singularity.order.dto.OrderMessage;
+import com.lubover.singularity.order.entity.Order;
+import com.lubover.singularity.order.feign.MerchantClient;
+import com.lubover.singularity.order.feign.UserClient;
+import com.lubover.singularity.order.mapper.OrderMapper;
+import com.lubover.singularity.order.registry.SlotRegistry;
+import com.lubover.singularity.order.service.OrderService;
+import com.lubover.singularity.order.slot.StockSlot;
+import com.lubover.singularity.order.tx.OrderLocalTransaction;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -50,6 +58,7 @@ public class OrderServiceImpl implements OrderService {
     private final Allocator allocator;
     private final OrderMapper orderMapper;
     private final UserClient userClient;
+    private final MerchantClient merchantClient;
     private final SlotRegistry slotRegistry;
     private final StringRedisTemplate redisTemplate;
     private final DefaultMQProducerImpl producerImpl;
@@ -68,7 +77,8 @@ public class OrderServiceImpl implements OrderService {
             StringRedisTemplate redisTemplate,
             SlotRegistry slotRegistry,
             OrderMapper orderMapper,
-            UserClient userClient) {
+            UserClient userClient,
+            MerchantClient merchantClient) {
         DefaultMQProducer producer = (DefaultMQProducer) rocketMQTemplate.getProducer();
         this.producer = producer;
         this.producerImpl = producer.getDefaultMQProducerImpl();
@@ -80,6 +90,7 @@ public class OrderServiceImpl implements OrderService {
                 handler());
         this.orderMapper = orderMapper;
         this.userClient = userClient;
+        this.merchantClient = merchantClient;
         this.slotRegistry = slotRegistry;
         this.redisTemplate = redisTemplate;
     }
@@ -130,6 +141,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Result payOrder(String orderId, String userId) {
+        return payOrder(orderId, userId, null);
+    }
+
+    @Override
+    public Result payOrder(String orderId, String userId, String userType) {
         Order order = orderMapper.selectByOrderId(orderId);
         if (order == null) {
             return new Result(false, "订单不存在");
@@ -141,24 +157,67 @@ public class OrderServiceImpl implements OrderService {
             return new Result(false, "订单状态不支持支付");
         }
 
-        try {
-            Long uid = Long.parseLong(userId);
-            Map<String, BigDecimal> body = new HashMap<>();
-            body.put("amount", PRODUCT_PRICE);
-            Map<String, Object> deductResult = userClient.deductBalance(uid, body);
-            if (!Boolean.TRUE.equals(deductResult.get("success"))) {
-                String msg = deductResult.get("message") != null
-                        ? String.valueOf(deductResult.get("message"))
-                        : "余额不足";
-                return new Result(false, msg);
+        boolean isMerchant = "merchant".equalsIgnoreCase(userType);
+
+        if (isMerchant) {
+            // 商户扣款
+            try {
+                Long merchantId = Long.parseLong(userId);
+                Map<String, Object> deductBody = new HashMap<>();
+                deductBody.put("merchantId", merchantId);
+                deductBody.put("amount", PRODUCT_PRICE);
+                Map<String, Object> deductResult = merchantClient.deductBalance(deductBody);
+                if (!Boolean.TRUE.equals(deductResult.get("success"))) {
+                    String msg = deductResult.get("message") != null
+                            ? String.valueOf(deductResult.get("message"))
+                            : "余额不足";
+                    return new Result(false, msg);
+                }
+            } catch (NumberFormatException e) {
+                return new Result(false, "merchantId 格式非法");
+            } catch (Exception e) {
+                return new Result(false, "扣款失败: " + e.getMessage());
             }
-        } catch (NumberFormatException e) {
-            return new Result(false, "userId 格式非法");
-        } catch (Exception e) {
-            return new Result(false, "扣款失败: " + e.getMessage());
+        } else {
+            // 用户扣款
+            try {
+                Long uid = Long.parseLong(userId);
+                Map<String, BigDecimal> body = new HashMap<>();
+                body.put("amount", PRODUCT_PRICE);
+                Map<String, Object> deductResult = userClient.deductBalance(uid, body);
+                if (!Boolean.TRUE.equals(deductResult.get("success"))) {
+                    String msg = deductResult.get("message") != null
+                            ? String.valueOf(deductResult.get("message"))
+                            : "余额不足";
+                    return new Result(false, msg);
+                }
+            } catch (NumberFormatException e) {
+                return new Result(false, "userId 格式非法");
+            } catch (Exception e) {
+                return new Result(false, "扣款失败: " + e.getMessage());
+            }
         }
 
         orderMapper.updateStatus(orderId, "PAID");
+
+        // 支付成功后，给对应商户增加余额
+        try {
+            String productId = order.getProductId();
+            if (productId != null && !productId.isBlank()) {
+                Map<String, Object> addBalanceBody = new HashMap<>();
+                addBalanceBody.put("productId", productId);
+                addBalanceBody.put("amount", PRODUCT_PRICE);
+                Map<String, Object> merchantResult = merchantClient.addBalanceByProduct(addBalanceBody);
+                if (!Boolean.TRUE.equals(merchantResult.get("success"))) {
+                    log.warn("商户余额增加失败: orderId={}, productId={}, result={}", orderId, productId, merchantResult);
+                } else {
+                    log.info("商户余额增加成功: orderId={}, productId={}, amount={}", orderId, productId, PRODUCT_PRICE);
+                }
+            }
+        } catch (Exception e) {
+            log.error("调用商户余额增加接口异常: orderId={}", orderId, e);
+        }
+
         return new Result(true, orderId);
     }
 

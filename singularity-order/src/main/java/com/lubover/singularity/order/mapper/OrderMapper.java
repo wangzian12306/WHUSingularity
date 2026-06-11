@@ -57,4 +57,9 @@ public interface OrderMapper {
      * @return 总数
      */
     long countList(@Param("userId") String userId, @Param("status") String status);
+
+    List<Order> selectByProductIds(@Param("productIds") List<String> productIds, @Param("status") String status,
+                                   @Param("offset") int offset, @Param("limit") int limit);
+
+    long countByProductIds(@Param("productIds") List<String> productIds, @Param("status") String status);
 }

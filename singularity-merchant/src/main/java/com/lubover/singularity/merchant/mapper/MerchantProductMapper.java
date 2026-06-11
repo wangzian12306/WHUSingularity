@@ -25,4 +25,6 @@ public interface MerchantProductMapper {
     int updateStatus(@Param("merchantId") Long merchantId,
                      @Param("productId") String productId,
                      @Param("status") Integer status);
+
+    Long selectMerchantIdByProductId(@Param("productId") String productId);
 }

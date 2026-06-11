@@ -20,6 +20,7 @@ import { ArrowLeftOutlined, ShoppingCartOutlined, SyncOutlined } from '@ant-desi
 import { productCatalogApi } from '../api/product'
 import { orderApi } from '../api/order'
 import { useAuth } from '../contexts/AuthContext'
+import { useMerchantAuth } from '../contexts/MerchantAuthContext'
 import type { ProductDetailResponse } from '../api/types'
 
 const { Title, Text, Paragraph } = Typography
@@ -41,6 +42,7 @@ export default function ProductDetail() {
   const { productId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { merchant } = useMerchantAuth()
   const [detail, setDetail] = useState<ProductDetailResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [snagging, setSnagging] = useState(false)
@@ -67,16 +69,18 @@ export default function ProductDetail() {
   }, [fetchDetail])
 
   const handleSnag = async () => {
-    if (!user || !detail) return
+    // 商户或用户都可以抢单
+    const buyerId = merchant ? String(merchant.id) : (user ? String(user.id) : null)
+    if (!buyerId || !detail) return
     setSnagging(true)
     try {
       const res = await orderApi.snag({
-        userId: String(user.id),
+        userId: buyerId,
         productId: detail.product.productId,
       })
       if (res.success && res.data) {
         message.success(`抢单成功，订单号：${res.data.orderId}`)
-        navigate('/user')
+        navigate(merchant ? '/merchant/orders' : '/user')
       } else {
         message.error(res.error?.message ?? res.message ?? '抢单失败')
       }
@@ -175,7 +179,7 @@ export default function ProductDetail() {
                   size="large"
                   icon={<ShoppingCartOutlined />}
                   loading={snagging}
-                  disabled={product.status !== 1 || available <= 0 || snagging}
+                  disabled={product.status !== 1 || available <= 0 || snagging || (!user && !merchant)}
                   onClick={handleSnag}
                 >
                   {available <= 0 ? '库存不足' : '立即抢单'}

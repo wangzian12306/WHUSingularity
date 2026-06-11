@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Card, Button, Modal, Form, Input, Row, Col, Tag, Space, Typography, message } from 'antd'
+import { Card, Button, Modal, Form, Input, InputNumber, Row, Col, Tag, Space, Typography, message } from 'antd'
 import { useMerchantAuth } from '../../contexts/MerchantAuthContext'
 import { merchantApi } from '../../api/merchant'
 import { productApi } from '../../api/merchant-product'
@@ -12,7 +12,12 @@ export default function MerchantCenter() {
   const [merchantDetail, setMerchantDetail] = useState<MerchantView | null>(null)
   const [loading, setLoading] = useState(false)
   const [editModalVisible, setEditModalVisible] = useState(false)
+  const [editSubmitting, setEditSubmitting] = useState(false)
   const [editForm] = Form.useForm()
+
+  const [rechargeOpen, setRechargeOpen] = useState(false)
+  const [recharging, setRecharging] = useState(false)
+  const [rechargeForm] = Form.useForm()
 
   const [productCount, setProductCount] = useState(0)
   const [activeProductCount, setActiveProductCount] = useState(0)
@@ -62,6 +67,8 @@ export default function MerchantCenter() {
   }
 
   const handleEditSubmit = async (values: UpdateMerchantRequest) => {
+    if (editSubmitting) return
+    setEditSubmitting(true)
     try {
       const res = await merchantApi.updateProfile(values)
       if (res.success) {
@@ -73,6 +80,29 @@ export default function MerchantCenter() {
       }
     } catch {
       message.error('更新失败')
+    } finally {
+      setEditSubmitting(false)
+    }
+  }
+
+  const handleRecharge = async () => {
+    const values = await rechargeForm.validateFields()
+    if (recharging) return
+    setRecharging(true)
+    try {
+      const res = await merchantApi.recharge(values.amount)
+      if (res.success) {
+        message.success('充值成功')
+        setRechargeOpen(false)
+        rechargeForm.resetFields()
+        fetchMerchantDetail()
+      } else {
+        message.error(res.error?.message ?? '充值失败')
+      }
+    } catch {
+      message.error('充值失败，请稍后重试')
+    } finally {
+      setRecharging(false)
     }
   }
 
@@ -104,6 +134,20 @@ export default function MerchantCenter() {
                 </Tag>
               </Text>
             </Space>
+          </Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card
+            title="账户余额"
+            extra={
+              <Button type="primary" size="small" onClick={() => setRechargeOpen(true)}>
+                充值
+              </Button>
+            }
+          >
+            <Text style={{ fontSize: 24, fontWeight: 'bold' }}>
+              ¥{(merchantDetail?.balance ?? 0).toFixed(2)}
+            </Text>
           </Card>
         </Col>
         <Col xs={24} md={12}>
@@ -147,11 +191,36 @@ export default function MerchantCenter() {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">
+              <Button type="primary" htmlType="submit" loading={editSubmitting}>
                 更新
               </Button>
-              <Button onClick={() => setEditModalVisible(false)}>取消</Button>
+              <Button onClick={() => setEditModalVisible(false)} disabled={editSubmitting}>
+                取消
+              </Button>
             </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="充值余额"
+        open={rechargeOpen}
+        onOk={handleRecharge}
+        onCancel={() => {
+          setRechargeOpen(false)
+          rechargeForm.resetFields()
+        }}
+        confirmLoading={recharging}
+        okText="确认充值"
+        cancelText="取消"
+      >
+        <Form form={rechargeForm} layout="vertical">
+          <Form.Item
+            name="amount"
+            label="充值金额"
+            rules={[{ required: true, message: '请输入充值金额' }]}
+          >
+            <InputNumber min={0.01} precision={2} style={{ width: '100%' }} placeholder="请输入金额" />
           </Form.Item>
         </Form>
       </Modal>

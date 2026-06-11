@@ -49,24 +49,69 @@ export default function Home() {
 
   if (merchant) {
     return (
-      <div>
-        <Title level={4}>商户中心</Title>
-        <Card>
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <div style={{ fontSize: 16 }}>
-              欢迎回来，<Text strong>{merchant.shopName ?? merchant.username}</Text>
-            </div>
-            <Space style={{ marginTop: 16 }}>
-              <Button type="primary" onClick={() => navigate('/merchant/products')}>
-                管理商品
-              </Button>
-              <Button onClick={() => navigate('/merchant/center')}>
-                商户设置
-              </Button>
-            </Space>
-          </Space>
-        </Card>
-      </div>
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <Title level={4} style={{ marginBottom: 4 }}>秒杀商品</Title>
+            <Text type="secondary">欢迎回来，<Text strong>{merchant.shopName ?? merchant.username}</Text>，您可以浏览和购买商品</Text>
+          </div>
+          <Input.Search
+            allowClear
+            enterButton={<SearchOutlined />}
+            placeholder="搜索商品"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            onSearch={(value) => fetchProducts(value)}
+            style={{ width: 280 }}
+          />
+        </div>
+
+        <Spin spinning={loading && products.length === 0}>
+          <Row gutter={[16, 16]}>
+            {products.map((product) => (
+              <Col key={product.productId} xs={24} sm={12} md={8} lg={6}>
+                <Card
+                  hoverable
+                  cover={
+                    <Image
+                      src={product.mainImage || imageFallback}
+                      fallback={imageFallback}
+                      alt={product.name}
+                      preview={false}
+                      style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover' }}
+                    />
+                  }
+                  onClick={() => navigate(`/products/${product.productId}`)}
+                  actions={[
+                    <Button type="link" icon={<ShoppingOutlined />} onClick={() => navigate(`/products/${product.productId}`)}>
+                      查看详情
+                    </Button>,
+                  ]}
+                >
+                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                    <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+                      <Tag color="blue">{product.category ?? '未分类'}</Tag>
+                      <Badge status={product.status === 1 ? 'success' : 'default'} text={product.status === 1 ? '上架' : '下架'} />
+                    </Space>
+                    <Title level={5} style={{ margin: 0 }}>{product.name}</Title>
+                    <Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ minHeight: 44, marginBottom: 0 }}>
+                      {product.subtitle || '暂无商品描述'}
+                    </Paragraph>
+                    <Text style={{ color: '#e10800', fontSize: 18, fontWeight: 700 }}>
+                      ¥{Number(product.price).toFixed(2)}
+                    </Text>
+                  </Space>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+          {products.length === 0 && !loading && (
+            <Card>
+              <Empty description="暂无商品" />
+            </Card>
+          )}
+        </Spin>
+      </Space>
     )
   }
 

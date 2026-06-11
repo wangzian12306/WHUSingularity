@@ -14,6 +14,7 @@
         <result column="description" property="description" />
         <result column="status" property="status" />
         <result column="avatar" property="avatar" />
+        <result column="balance" property="balance" />
         <result column="create_time" property="createTime" />
         <result column="update_time" property="updateTime" />
     </resultMap>
@@ -32,6 +33,7 @@
             <if test="address != null">address = #{address},</if>
             <if test="description != null">description = #{description},</if>
             <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="balance != null">balance = #{balance},</if>
             update_time = NOW()
         </set>
         WHERE id = #{id}

@@ -8,6 +8,13 @@ export const orderApi = {
   list: (params?: OrderListParams) =>
     request<OrderListResponse>({ method: 'GET', url: '/api/order/list', params }),
 
-  pay: (orderId: string, userId: string) =>
-    request<void>({ method: 'POST', url: `/api/order/${orderId}/pay`, data: { userId } }),
+  listByProducts: (productIds: string[], params?: { status?: string; page?: number; size?: number }) =>
+    request<OrderListResponse>({
+      method: 'GET',
+      url: '/api/order/list-by-products',
+      params: { productIds, ...params },
+    }),
+
+  pay: (orderId: string, userId: string, userType?: string) =>
+    request<void>({ method: 'POST', url: `/api/order/${orderId}/pay`, data: { userId, userType } }),
 }

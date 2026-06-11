@@ -14,6 +14,7 @@ public class Merchant {
     private String description;
     private Integer status;
     private String avatar;
+    private java.math.BigDecimal balance;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 
@@ -111,5 +112,13 @@ public class Merchant {
 
     public void setUpdateTime(LocalDateTime updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public java.math.BigDecimal getBalance() {
+        return balance;
+    }
+
+    public void setBalance(java.math.BigDecimal balance) {
+        this.balance = balance;
     }
 }

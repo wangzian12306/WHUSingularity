@@ -55,4 +55,10 @@
         WHERE merchant_id = #{merchantId} AND product_id = #{productId}
     </update>
 
+    <select id="selectMerchantIdByProductId" resultType="java.lang.Long">
+        SELECT merchant_id FROM merchant_product
+        WHERE product_id = #{productId}
+        LIMIT 1
+    </select>
+
 </mapper>
