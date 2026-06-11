@@ -56,6 +56,7 @@ singularity-gateway/        — API 网关：Spring Cloud Gateway 路由转发 +
 singularity-front/          — 前端：React + TS + Vite + Ant Design
 singularity-user/           — 用户服务：注册/登录/JWT认证/余额管理 (8090)
 singularity-order/          — 订单服务：高并发抢单，依赖 core 框架 (8081)
+singularity-order-baseline/ — 基线订单服务：不使用 core 框架的标准 Spring Boot 实现，用于对比测试
 singularity-stock/          — 库存服务：库存管理，MQ 驱动，Flyway 迁移 (8082)
 singularity-product/        — 商品服务：商品 CRUD + Caffeine/Redis 两级缓存，Flyway 迁移 (8087)
 singularity-merchant/       — 商户服务：商户注册/JWT认证、商品管理、库存管理 (8091，默认 H2)
@@ -67,19 +68,17 @@ docker/                     — Docker 构建相关
 
 ### Core Framework (singularity-core)
 
-基础包路径: `com.lubover.singularity`
+基础包路径: `com.lubover.singularity`。包含两套执行模型：
 
+**Allocation 模型**（写路径，`singularity-order` 使用）：
 - `api/` — 核心接口: Allocator, Actor, Slot, Interceptor, Registry, ShardPolicy, Context, Result
-- `pipeline/` — Pipeline 执行框架: Operation, PipelineHandler, ExecutionContext
-- `pipeline/impl/` — Pipeline 默认实现
-- `pipeline/read/` — 读操作 pipeline
-- `pipeline/interceptor/` — 内置拦截器: ReadRateLimitInterceptor, ReadThroughCacheInterceptor, CacheStampedeGuardInterceptor, ReadRoutingInterceptor, MetricsTraceInterceptor
+- `Allocator.allocate(Actor)` 内部流程：Registry 获取 slot → ShardPolicy 分流 → Interceptor 链 → handler
 
-`Allocator.allocate(Actor)` 的内部流程：
-1. Registry 获取可用 slot 列表
-2. ShardPolicy 根据 metadata 做 Actor→Slot 分流
-3. 执行 Interceptor 链（around 语义，transactional）
-4. 调用业务 handler
+**Pipeline 模型**（读写治理，`singularity-product` 使用）：
+- `pipeline/` — 核心类型: Operation, PipelineExecutor, PipelineHandler, PipelineInterceptor, ExecutionContext, ExecutionResult
+- `pipeline/impl/` — 默认实现: DefaultPipelineExecutor, DefaultExecutionContext
+- `pipeline/read/` — 读路径抽象: ReadCache, CacheLookup, ReadLockManager, ReadRegistry/ReadSlot/ReadShardPolicy, ReadMeta
+- `pipeline/interceptor/` — 内置拦截器: MetricsTraceInterceptor, ReadThroughCacheInterceptor, CacheStampedeGuardInterceptor, ReadRateLimitInterceptor, ReadRoutingInterceptor, ReadDegradeInterceptor
 
 业务 handler 内使用 RocketMQ half message + Redis 原子减库存的分布式事务模式。
 
@@ -141,6 +140,15 @@ docker/                     — Docker 构建相关
 ## Documentation
 
 `docs/` 目录包含各服务的设计文档、API 契约、场景验收和进度记录，是理解业务细节的主要参考。
+
+- `ARCHITECTURE.md` — 系统整体架构说明（含 Mermaid 图）
+- `startup.md` — 服务启动指南
+- `nacos/README.md` — Nacos 配置中心详细说明
+- `rfc/` — 设计文档：core 框架设计、auto-scaler、复杂抢单、order-baseline、整体架构
+- `user/` — 用户服务设计文档（API 契约、认证安全、场景验收）
+- `product/` — 商品服务边界文档
+- `frontend/` — 前端设计、技术栈、API 契约、任务卡、进度
+- `monitor/` — scaler 实现文档、压测报告、性能分析
 
 ### 文档更新约定
 
